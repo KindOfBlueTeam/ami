@@ -16,6 +16,7 @@ from models import (
     SubscriptionUpdate,
 )
 from recommendation_engine import CO2E_KG_PER_KWH, estimate_kwh
+from service_links import get_service_links
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,14 @@ def _monthly_cost(sub: Subscription) -> float:
     return sub.cost
 
 
+def _provider_read(p: Provider) -> ProviderRead:
+    return ProviderRead(
+        id=p.id, name=p.name, website=p.website,
+        category=p.category, logo_color=p.logo_color, is_consumer=p.is_consumer,
+        **get_service_links(p.name),
+    )
+
+
 def _enrich(sub: Subscription, session: Session) -> SubscriptionRead:
     provider = session.get(Provider, sub.provider_id)
     plan = session.get(Plan, sub.plan_id) if sub.plan_id else None
@@ -38,7 +47,7 @@ def _enrich(sub: Subscription, session: Session) -> SubscriptionRead:
 
     return SubscriptionRead(
         **sub.model_dump(),
-        provider=ProviderRead.model_validate(provider.model_dump()) if provider else None,
+        provider=_provider_read(provider) if provider else None,
         plan=PlanRead.model_validate(plan.model_dump()) if plan else None,
         monthly_cost=_monthly_cost(sub),
         estimated_kwh_monthly=round(kwh, 3),
