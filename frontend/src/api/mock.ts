@@ -203,6 +203,9 @@ function makeEnrichedSub(
     monthly_cost: null,
     estimated_kwh_monthly: null,
     estimated_co2e_kg_monthly: null,
+    co2_miles_equivalent_monthly: null,
+    compute_intensity_score: null,
+    water_liters_monthly: null,
   })
 }
 
@@ -386,6 +389,9 @@ export const createSubscription = async (data: SubscriptionCreate): Promise<Subs
     monthly_cost: null,
     estimated_kwh_monthly: null,
     estimated_co2e_kg_monthly: null,
+    co2_miles_equivalent_monthly: null,
+    compute_intensity_score: null,
+    water_liters_monthly: null,
   }
   subscriptions.push(sub)
   return enrichSub(sub)

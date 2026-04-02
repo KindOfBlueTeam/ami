@@ -1,0 +1,52 @@
+<!--
+  PLACEHOLDER — replace with final artist SVG at final cutover.
+
+  Coordinate contract (must be preserved in final asset):
+    viewBox:      0 0 200 120
+    Needle pivot: (100, 110)  — the center of the semicircle base
+    Arc left end: (10, 110)   — score 0
+    Arc top:      (100, 20)   — score 50
+    Arc right end:(190, 110)  — score 100
+    Needle length: ~68 px (keeps tip inside inner arc at r=70)
+
+  Static artwork vs. runtime state:
+    STATIC  (this file)  — zone colors, dividers, end caps, text labels, pivot dot
+    DYNAMIC (JS overlay) — needle line and cap circle
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" aria-hidden="true">
+
+  <!-- Zone 1: Low (score 0–25) · 180° → 135° -->
+  <path d="M 10 110 A 90 90 0 0 1 36.4 46.4 L 50.5 60.5 A 70 70 0 0 0 30 110 Z"
+        fill="#86efac"/>
+
+  <!-- Zone 2: Moderate (score 26–50) · 135° → 90° -->
+  <path d="M 36.4 46.4 A 90 90 0 0 1 100 20 L 100 40 A 70 70 0 0 0 50.5 60.5 Z"
+        fill="#fde68a"/>
+
+  <!-- Zone 3: High (score 51–75) · 90° → 45° -->
+  <path d="M 100 20 A 90 90 0 0 1 163.6 46.4 L 149.5 60.5 A 70 70 0 0 0 100 40 Z"
+        fill="#fed7aa"/>
+
+  <!-- Zone 4: Very High (score 76–100) · 45° → 0° -->
+  <path d="M 163.6 46.4 A 90 90 0 0 1 190 110 L 170 110 A 70 70 0 0 0 149.5 60.5 Z"
+        fill="#fca5a5"/>
+
+  <!-- Zone dividers at 25 / 50 / 75 score boundaries -->
+  <line x1="36.4"  y1="46.4"  x2="50.5"  y2="60.5"  stroke="white" stroke-width="1.5"/>
+  <line x1="100"   y1="20"    x2="100"   y2="40"     stroke="white" stroke-width="1.5"/>
+  <line x1="163.6" y1="46.4"  x2="149.5" y2="60.5"   stroke="white" stroke-width="1.5"/>
+
+  <!-- End caps (connecting inner and outer arcs at the base) -->
+  <line x1="10"  y1="110" x2="30"  y2="110" stroke="#cbd5e1" stroke-width="1"/>
+  <line x1="170" y1="110" x2="190" y2="110" stroke="#cbd5e1" stroke-width="1"/>
+
+  <!-- Zone edge labels -->
+  <text x="19"  y="119" font-size="7" fill="#94a3b8" text-anchor="middle"
+        font-family="system-ui, sans-serif">LOW</text>
+  <text x="182" y="119" font-size="7" fill="#94a3b8" text-anchor="middle"
+        font-family="system-ui, sans-serif">HIGH</text>
+
+  <!-- Needle pivot dot (JS overlay draws the needle on top of this) -->
+  <circle cx="100" cy="110" r="4" fill="#1e293b"/>
+
+</svg>

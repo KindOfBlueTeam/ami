@@ -1,6 +1,9 @@
 import { format, parseISO, differenceInDays } from 'date-fns'
 import clsx from 'clsx'
 import type { Subscription } from '../types'
+import ComputeGauge from './eco/ComputeGauge'
+import WaterFlask from './eco/WaterFlask'
+import { computeIntensityLabel, litersToGallons } from '../utils/ecoMetrics'
 
 interface Props {
   sub: Subscription
@@ -45,6 +48,11 @@ export default function ServiceCard({ sub, onEdit, onDelete }: Props) {
   const monthlyCost = sub.monthly_cost ?? (
     sub.billing_interval === 'annual' ? sub.cost / 12 : sub.cost
   )
+
+  const hasGauge = sub.compute_intensity_score != null && sub.estimated_kwh_monthly != null
+  const hasFlask = sub.water_liters_monthly != null && sub.water_liters_monthly > 0
+  const hasCo2   = sub.estimated_co2e_kg_monthly != null
+  const hasEco   = hasGauge || hasFlask || hasCo2
 
   return (
     <div className="card p-5 hover:shadow-md transition-shadow duration-150">
@@ -95,60 +103,53 @@ export default function ServiceCard({ sub, onEdit, onDelete }: Props) {
         </span>
       </div>
 
-      {/* Eco estimate */}
-      {sub.estimated_co2e_kg_monthly != null && (
-        <p className="text-xs text-slate-400 mt-3">
-          ~{sub.estimated_co2e_kg_monthly.toFixed(2)} kg CO₂e/mo
-          {sub.co2_miles_equivalent_monthly != null && sub.co2_miles_equivalent_monthly > 0 && (
-            <span
-              className="ml-1.5"
-              title="Based on average gasoline vehicle emissions (0.404 kg CO₂e/mile)"
-            >
-              · ≈ driving {sub.co2_miles_equivalent_monthly} mi
-            </span>
-          )}
-        </p>
-      )}
+      {/* Eco impact panel */}
+      {hasEco && (
+        <div className="mt-3 pt-3 border-t border-slate-50">
+          <div className="flex items-start gap-3">
 
-      {/* Compute intensity */}
-      {sub.compute_intensity_score != null && (
-        <div className="mt-2">
-          <div className="flex items-center justify-between mb-0.5">
-            <span
-              className="text-xs text-slate-400"
-              title="Estimated GPU/CPU compute load relative to other AI categories (0 = minimal, 100 = maximum)"
-            >
-              ⚡ Compute intensity · {
-                sub.compute_intensity_score < 30 ? 'Low' :
-                sub.compute_intensity_score < 55 ? 'Moderate' :
-                sub.compute_intensity_score < 75 ? 'High' : 'Very high'
-              }
-            </span>
-            <span className="text-xs text-slate-400">{sub.compute_intensity_score}</span>
-          </div>
-          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className={clsx('h-full rounded-full', {
-                'bg-green-400':  sub.compute_intensity_score < 30,
-                'bg-amber-400':  sub.compute_intensity_score >= 30 && sub.compute_intensity_score < 55,
-                'bg-orange-400': sub.compute_intensity_score >= 55 && sub.compute_intensity_score < 75,
-                'bg-red-400':    sub.compute_intensity_score >= 75,
-              })}
-              style={{ width: `${sub.compute_intensity_score}%` }}
-            />
+            {/* Compute gauge */}
+            {hasGauge && (
+              <div className="w-24 shrink-0">
+                <ComputeGauge
+                  score={sub.compute_intensity_score!}
+                  label={computeIntensityLabel(sub.compute_intensity_score!)}
+                  energyKwhMonthly={sub.estimated_kwh_monthly!}
+                  tooltipText="Relative estimate based on workload type and your usage level"
+                />
+              </div>
+            )}
+
+            {/* Water flask */}
+            {hasFlask && (
+              <div className="w-14 shrink-0">
+                <WaterFlask
+                  litersMonthly={sub.water_liters_monthly!}
+                  gallonsMonthly={litersToGallons(sub.water_liters_monthly!)}
+                  tooltipText="Estimated from energy usage using typical data center cooling (~1–2 L per kWh)"
+                />
+              </div>
+            )}
+
+            {/* CO₂ summary — supporting text, lower visual hierarchy */}
+            {hasCo2 && (
+              <div className="flex-1 min-w-0 pt-1 space-y-1">
+                <p className="text-xs text-slate-400">
+                  ~{sub.estimated_co2e_kg_monthly!.toFixed(2)} kg CO₂e/mo
+                </p>
+                {sub.co2_miles_equivalent_monthly != null && sub.co2_miles_equivalent_monthly > 0 && (
+                  <p
+                    className="text-xs text-slate-300"
+                    title="Based on average gasoline vehicle emissions (0.404 kg CO₂e/mile)"
+                  >
+                    ≈ {sub.co2_miles_equivalent_monthly} mi driving
+                  </p>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
-      )}
-
-      {/* Water usage */}
-      {sub.water_liters_monthly != null && sub.water_liters_monthly > 0 && (
-        <p
-          className="text-xs text-slate-400 mt-1.5"
-          title="Estimated water used for cooling data center hardware (1.5 L per kWh)"
-        >
-          💧 ~{sub.water_liters_monthly.toFixed(2)} L water/mo
-          <span className="ml-1">· ≈ {(sub.water_liters_monthly / 3.785).toFixed(2)} gal</span>
-        </p>
       )}
 
       {/* Actions */}
