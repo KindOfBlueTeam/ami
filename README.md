@@ -1,35 +1,112 @@
 # Ami
 
-**A local-first AI subscription tracker for people, not enterprises.**
+**A local-first AI subscription tracker — for people, not enterprises.**
 
-Ami helps you track what you spend on consumer AI services, how much you actually use them, and their estimated environmental footprint — all stored on your own machine with no accounts, no cloud sync, and no external API calls required.
+Ami helps you see what you're spending on AI services, how much you actually use them, and their estimated environmental footprint. Everything is stored in a local SQLite file on your own machine. No accounts, no cloud, no data leaving your device.
+
+---
+
+## Quick start
+
+```bash
+git clone https://github.com/KindOfBlueTeam/ami.git
+cd ami
+./install-ami.sh   # installs everything and seeds the service catalog (~1 min)
+./run-ami.sh       # starts Ami and opens it in your browser
+```
+
+That's it. Ami opens at **http://127.0.0.1:8000**.
+
+To stop Ami, press `Ctrl+C` in the terminal.
+
+---
+
+## Requirements
+
+| Requirement | Minimum version | Download |
+|---|---|---|
+| Python | 3.10 | https://www.python.org/downloads/ |
+| Node.js | 18 | https://nodejs.org |
+
+`pip` and `npm` are included with Python and Node.js respectively.
+
+> **macOS tip:** if `python3` is not found, install it via [python.org](https://www.python.org/downloads/) or Homebrew (`brew install python`). The macOS system Python is too old.
+
+---
+
+## What `install-ami.sh` does
+
+Run once after cloning. It will:
+
+1. Check that Python 3.10+ and Node 18+ are installed
+2. Create a Python virtual environment at `backend/.venv`
+3. Install Python dependencies from `backend/requirements.txt`
+4. Initialize the SQLite database and seed the service catalog (17 providers, 80+ plans)
+5. Install frontend Node.js dependencies
+6. Build the frontend
+
+If any step fails, the script exits with a clear error message telling you what to fix.
+
+---
+
+## What `run-ami.sh` does
+
+Run every time you want to use Ami:
+
+- Verifies that `install-ami.sh` has been run
+- Starts the FastAPI backend (serves both the API and the built frontend)
+- Opens **http://127.0.0.1:8000** in your browser automatically
+- Press `Ctrl+C` to stop
+
+---
+
+## Resetting Ami
+
+```bash
+./reset-ami.sh
+```
+
+Interactively confirms before deleting anything. Removes:
+- `backend/.venv` (Python environment)
+- `frontend/node_modules`
+- `frontend/dist` (built frontend)
+- `backend/ami.db` (**all your data**)
+
+After resetting, run `./install-ami.sh` again to start fresh.
+
+---
+
+## Explore without a backend (mock mode)
+
+If you just want to explore the UI without setting up a backend, the frontend can run against an in-memory mock with realistic sample data:
+
+```bash
+cd frontend
+cp .env.example .env.local
+# Edit .env.local and set: VITE_USE_MOCK=true
+npm install
+npm run dev
+```
+
+Open **http://127.0.0.1:5173**
+
+> Data resets on every page refresh in mock mode. This mode is for UI exploration only — nothing is saved.
 
 ---
 
 ## What Ami is
 
-- A personal finance tool for your AI subscriptions
-- Local-first: your data never leaves your device
-- Single-user, no authentication required
-- A deterministic recommendation engine — no LLM logic, no black boxes
-- 🇬🇧 Metric and 🇺🇸 Imperial unit support throughout
+- Track every AI subscription you have, what it costs, when it renews, and how you feel about its value
+- See your total monthly and annual AI spend at a glance
+- Get deterministic recommendations: switch to annual billing, cancel unused services, flag overlapping subscriptions
+- View your estimated ecological footprint (energy, CO₂, water) across all your AI services, with real-world "In Perspective" comparisons
+- Toggle between 🇬🇧 Metric and 🇺🇸 Imperial units throughout
 
 ## What Ami is not
 
-- A tracker for API platform usage (OpenAI API, Anthropic API, etc.) — V1 is consumer subscriptions only
-- A cloud service or SaaS product
-- Connected to any billing system or AI provider
-
----
-
-## Features
-
-- **Onboarding wizard** — conversational multi-step flow that pre-fills known plan pricing and asks you to confirm or correct it
-- **Dashboard** — monthly spend, yearly estimate, next renewal, ecological impact (energy, CO₂, water), and real-world "In Perspective" equivalences
-- **Services** — full CRUD for your subscriptions with plan catalog and price verification
-- **Recommendations** — deterministic rules: annual billing savings, overlap detection, downgrade opportunities, eco footprint alerts
-- **Settings** — eco priority, optimization style, grid carbon intensity
-- **Units** — toggle between 🇬🇧 Metric and 🇺🇸 Imperial across all ecological displays
+- A tracker for developer API usage (OpenAI API, Anthropic API, etc.) — V1 covers consumer subscriptions only
+- A cloud service — everything runs on your machine
+- Connected to any billing system — there are no public billing APIs for consumer AI apps, so you enter data manually
 
 ---
 
@@ -59,23 +136,54 @@ Ami helps you track what you spend on consumer AI services, how much you actuall
 | Adobe Firefly | Free · Premium |
 | Leonardo AI | Free · Apprentice · Artisan · Maestro |
 | MidJourney | Basic · Standard · Pro · Mega |
-| Stability AI | Free · Starter · Pro · Max |
+| Stability AI | Free · Pay-as-you-go |
 
 ### 🎬 Video generation
 
 | Service | Plans |
 |---|---|
-| Luma AI | Free · Plus · Pro · Premier |
-| Pika | Free · Basic · Pro · Unlimited |
-| Runway | Free · Standard · Pro · Unlimited |
+| Luma AI | Free · Standard · Pro |
+| Pika | Free · Basic · Pro |
+| Runway | Basic · Standard · Pro · Unlimited |
 
 ### 🎵 Audio generation
 
 | Service | Plans |
 |---|---|
-| ElevenLabs | Free · Starter · Creator · Pro · Scale |
+| ElevenLabs | Free · Starter · Creator · Pro |
 | Suno | Free · Pro · Premier |
 | Udio | Free · Standard · Pro |
+
+---
+
+## Recommendations
+
+Ami's recommendation engine is fully deterministic — no LLM calls, no external requests.
+
+| Type | When it fires |
+|---|---|
+| `annual` | You're billed monthly and an annual plan would save you money |
+| `cancel` | You rated this service low value |
+| `downgrade` | Light usage and a free or cheaper tier exists |
+| `overlap` | You have 2+ subscriptions in the same category (chat, coding, image) |
+| `eco` | Heavy usage and you've set eco as a high priority |
+| `keep` | High value and moderate or heavy usage — no action recommended |
+
+---
+
+## Ecological estimates
+
+CO₂e, energy, and water figures are rough order-of-magnitude estimates based on published research. They are meant to give directional context, not audit-grade measurements.
+
+| Factor | Value used |
+|---|---|
+| Energy per chat message | ~0.003 kWh |
+| Energy per image generated | ~0.020 kWh |
+| Energy per minute of audio | ~0.005 kWh |
+| Cooling water per kWh | ~1.8 L |
+| Grid carbon intensity | 0.386 kg CO₂e/kWh (US average, EPA 2023) |
+
+The carbon intensity figure is adjustable in Settings.
 
 ---
 
@@ -83,56 +191,32 @@ Ami helps you track what you spend on consumer AI services, how much you actuall
 
 | Layer | Stack |
 |---|---|
-| Backend | Python · FastAPI · SQLModel · SQLite · Uvicorn |
-| Frontend | React · TypeScript · Vite · Tailwind CSS |
+| Backend | Python 3.10+ · FastAPI · SQLModel · SQLite · Uvicorn |
+| Frontend | React 18 · TypeScript · Vite · Tailwind CSS |
+| Data | Local SQLite file at `backend/ami.db` |
 | Runtime | Local only · bound to 127.0.0.1 |
 
 ---
 
-## Requirements
+## Manual setup (for developers)
 
-- Python 3.9+
-- Node.js 18+
-- pip
-
----
-
-## Running locally
-
-### Option A — Frontend only (no backend needed)
-
-Uses an in-memory mock with realistic seed data. Good for exploring the UI.
-
-```bash
-cd frontend
-echo "VITE_USE_MOCK=true" > .env.local
-npm install
-npm run dev
-```
-
-Open **http://127.0.0.1:5173**
-
-> State resets on page refresh in mock mode.
-
----
-
-### Option B — Full stack (backend + frontend)
+If you prefer to run the backend and frontend separately (e.g. for hot-reload development):
 
 **Terminal 1 — Backend**
 
 ```bash
 cd backend
 python3 -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python3 seed.py                 # initialize DB and seed provider/plan catalog
+python seed.py                     # initialize DB and seed service catalog
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-API available at **http://127.0.0.1:8000**
-Interactive docs at **http://127.0.0.1:8000/docs**
+API: **http://127.0.0.1:8000**
+Interactive API docs: **http://127.0.0.1:8000/docs**
 
-**Terminal 2 — Frontend**
+**Terminal 2 — Frontend (dev server with hot reload)**
 
 ```bash
 cd frontend
@@ -140,47 +224,23 @@ npm install
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**
+Frontend: **http://127.0.0.1:5173**
 
----
+> In dev mode, the Vite dev server proxies all `/api` requests to the backend at port 8000. Both must be running at the same time.
 
-### Option C — Production mode (single process)
-
-Builds the frontend and serves it from the FastAPI backend.
-
-```bash
-cd frontend && npm install && npm run build
-cd ../backend
-source .venv/bin/activate
-uvicorn main:app --host 127.0.0.1 --port 8000
-```
-
-Open **http://127.0.0.1:8000**
-
----
-
-## Seed script
+**Re-seed the service catalog (after updating catalog data)**
 
 ```bash
 cd backend
 source .venv/bin/activate
-
-python3 seed.py                  # providers + plan catalog only (recommended)
-python3 seed.py --with-subs      # also add 4 sample subscriptions
-python3 seed.py --reset          # clear all data and re-seed
+python seed.py
 ```
 
-> **Note:** If you run `--with-subs` and then complete onboarding, you will end up with duplicate subscriptions. Use `--with-subs` only for UI testing before running onboarding.
-
----
-
-## Database
-
-SQLite file at `backend/ami.db`. To start fresh:
+**Start fresh**
 
 ```bash
 rm backend/ami.db
-cd backend && python3 seed.py
+cd backend && python seed.py
 ```
 
 ---
@@ -189,100 +249,70 @@ cd backend && python3 seed.py
 
 ```
 ami/
+├── install-ami.sh             # One-time installer
+├── run-ami.sh                 # Start Ami
+├── reset-ami.sh               # Wipe everything and start over
+│
 ├── backend/
-│   ├── main.py                   # FastAPI app, CORS, static file serving
-│   ├── database.py               # SQLite engine + session factory
-│   ├── models.py                 # SQLModel table definitions and schemas
-│   ├── recommendation_engine.py  # Deterministic recommendation rules
-│   ├── seed.py                   # Orchestrates provider + plan seeding
+│   ├── main.py                # FastAPI app entry point
+│   ├── database.py            # SQLite engine, migrations, default user setup
+│   ├── models.py              # SQLModel table and schema definitions
+│   ├── seed.py                # Seed providers, plans, and sample data
+│   ├── recommendation_engine.py
 │   ├── requirements.txt
 │   ├── app/
-│   │   ├── migrate.py            # SQL migration runner (schema_migrations table)
-│   │   ├── migrations/           # Numbered .sql migration files
-│   │   ├── provider_catalog.py   # Canonical provider definitions
-│   │   ├── seed_providers.py     # Idempotent provider upsert (slug-keyed)
-│   │   └── seed_plans.py         # Idempotent plan upsert (slug + billing_interval)
+│   │   ├── migrate.py         # SQL file migration runner
+│   │   ├── migrations/        # Numbered .sql schema migrations
+│   │   ├── provider_catalog.py
+│   │   ├── seed_providers.py  # Idempotent provider upsert (slug-based)
+│   │   └── seed_plans.py      # Idempotent plan upsert
 │   └── routers/
-│       ├── providers.py          # GET /api/providers, /api/providers/{id}/plans
-│       ├── subscriptions.py      # CRUD /api/subscriptions
-│       ├── recommendations.py    # List, generate, dismiss
-│       ├── settings.py           # App settings
-│       ├── onboarding.py         # Onboarding status and completion
-│       └── dashboard.py          # GET /api/dashboard summary
+│       ├── providers.py
+│       ├── subscriptions.py
+│       ├── recommendations.py
+│       ├── settings.py
+│       ├── onboarding.py
+│       ├── dashboard.py
+│       └── users.py
+│
 └── frontend/
     ├── index.html
-    ├── vite.config.ts            # Dev proxy: /api → 127.0.0.1:8000
-    ├── tailwind.config.js
-    ├── package.json
+    ├── vite.config.ts         # Dev proxy: /api → 127.0.0.1:8000
+    ├── .env.example           # Copy to .env.local for mock mode
     └── src/
         ├── api/
-        │   ├── client.ts         # Switches between real and mock based on VITE_USE_MOCK
-        │   ├── real.ts           # Axios client wired to FastAPI
-        │   └── mock.ts           # In-memory mock for frontend-only dev
-        ├── types/index.ts        # Shared TypeScript types
-        ├── contexts/             # UnitSystemContext (metric / imperial)
+        │   ├── client.ts      # Switches between real and mock
+        │   ├── real.ts        # Axios client → FastAPI
+        │   └── mock.ts        # In-memory mock for UI exploration
+        ├── contexts/
+        │   └── UnitSystemContext.tsx
         ├── utils/
-        │   ├── ecoMetrics.ts     # kWh, CO₂, water conversion helpers
-        │   └── ecoReferences.ts  # "In Perspective" tile generators
+        │   ├── ecoMetrics.ts
+        │   └── ecoReferences.ts  # "In Perspective" comparisons
         ├── components/
         │   ├── NavBar.tsx
         │   ├── ServiceCard.tsx
         │   ├── UnitSystemToggle.tsx
-        │   └── eco/              # PowerImpactTile, Co2ImpactTile, WaterImpactTile, InPerspective, …
+        │   └── eco/           # PowerImpactTile, Co2ImpactTile, WaterImpactTile, …
         └── pages/
-            ├── Onboarding.tsx    # Conversational setup wizard
-            ├── Dashboard.tsx     # Spend + eco overview
-            ├── Services.tsx      # Subscription management
+            ├── Onboarding.tsx
+            ├── Dashboard.tsx
+            ├── Services.tsx
             ├── Recommendations.tsx
             └── Settings.tsx
 ```
 
 ---
 
-## Recommendation engine
+## Scope
 
-Rules are deterministic — no LLM calls, no external requests.
-
-| Type | Trigger |
-|---|---|
-| `annual` | Monthly billing + annual plan available → show potential savings |
-| `cancel` | Perceived value = low → suggest cancelling |
-| `downgrade` | Light usage + free tier available → suggest downgrading |
-| `overlap` | 2+ chat, coding, or image subscriptions → flag redundancy |
-| `eco` | Heavy usage + high eco priority setting → suggest reducing use |
-| `keep` | High value + moderate or heavy usage → confirm no changes needed |
-
-Ami cannot see your actual usage against plan limits — consumer AI apps do not provide public billing or usage APIs. All recommendations are based on data you enter.
-
----
-
-## Environmental estimates
-
-CO₂e figures are rough approximations based on published research, not precise measurements. They are intended to give a directional sense of footprint, not an audit-grade number.
-
-Ecological data is shown in 🇬🇧 Metric (kWh, kg, L) or 🇺🇸 Imperial (kWh, lbs, gal) based on your selection.
-
-| Metric | Estimate used |
-|---|---|
-| Energy per chat message | ~0.003 kWh |
-| Energy per image generated | ~0.020 kWh |
-| Energy per minute of audio | ~0.005 kWh |
-| Cooling water ratio | ~1.8 L per kWh |
-| Grid carbon intensity | 0.386 kg CO₂e/kWh (US average, EPA 2023) |
-
-The carbon intensity figure is configurable in Settings.
-
----
-
-## Scope — V1
-
-**In scope**
+**In scope for V1**
 - Consumer AI subscriptions billed monthly or annually
-- Single user, local machine only
+- Single user, local machine
 
 **Out of scope**
-- OpenAI API / Anthropic API / other developer API billing
-- Team or enterprise seat management
-- Cloud hosting or remote access
-- Automatic billing import (no consumer AI app offers a public billing API)
+- Developer API billing (OpenAI API, Anthropic API, etc.)
+- Team / enterprise seat management
+- Cloud hosting or multi-device sync
+- Automatic billing import
 - Multi-currency (USD only in V1)

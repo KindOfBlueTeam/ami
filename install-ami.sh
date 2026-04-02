@@ -80,13 +80,21 @@ backend/.venv/bin/pip install --quiet --upgrade pip
 backend/.venv/bin/pip install --quiet -r backend/requirements.txt
 ok "Backend dependencies installed"
 
-# ── 4. Frontend dependencies ───────────────────────────────────────────────────
+# ── 4. Initialize database ────────────────────────────────────────────────────
+
+info "Initializing database and seeding service catalog…"
+cd backend
+.venv/bin/python seed.py
+cd ..
+ok "Database initialized"
+
+# ── 5. Frontend dependencies ───────────────────────────────────────────────────
 
 info "Installing frontend dependencies…"
 npm install --prefix frontend --silent
 ok "Frontend dependencies installed"
 
-# ── 5. Build frontend ──────────────────────────────────────────────────────────
+# ── 6. Build frontend ──────────────────────────────────────────────────────────
 
 info "Building frontend…"
 npm run build --prefix frontend --silent
