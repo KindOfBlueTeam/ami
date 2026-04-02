@@ -249,6 +249,8 @@ class SubscriptionRead(SQLModel):
     estimated_kwh_monthly: Optional[float] = None
     estimated_co2e_kg_monthly: Optional[float] = None
     co2_miles_equivalent_monthly: Optional[float] = None
+    compute_intensity_score: Optional[int] = None
+    water_liters_monthly: Optional[float] = None
 
 
 # ── Usage ──────────────────────────────────────────────────────────────────────

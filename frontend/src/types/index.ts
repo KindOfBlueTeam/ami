@@ -75,6 +75,8 @@ export interface Subscription {
   estimated_kwh_monthly: number | null
   estimated_co2e_kg_monthly: number | null
   co2_miles_equivalent_monthly: number | null
+  compute_intensity_score: number | null
+  water_liters_monthly: number | null
 }
 
 export interface SubscriptionCreate {

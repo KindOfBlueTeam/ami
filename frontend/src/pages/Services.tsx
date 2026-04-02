@@ -332,8 +332,10 @@ export default function Services() {
     setShowAdd(false)
   }
 
-  const active = subs.filter((s) => s.status === 'active')
-  const inactive = subs.filter((s) => s.status !== 'active')
+  const byIntensityDesc = (a: typeof subs[0], b: typeof subs[0]) =>
+    (b.compute_intensity_score ?? 0) - (a.compute_intensity_score ?? 0)
+  const active = subs.filter((s) => s.status === 'active').sort(byIntensityDesc)
+  const inactive = subs.filter((s) => s.status !== 'active').sort(byIntensityDesc)
 
   return (
     <div className="space-y-6">

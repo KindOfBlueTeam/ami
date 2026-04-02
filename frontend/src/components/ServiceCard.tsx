@@ -110,6 +110,47 @@ export default function ServiceCard({ sub, onEdit, onDelete }: Props) {
         </p>
       )}
 
+      {/* Compute intensity */}
+      {sub.compute_intensity_score != null && (
+        <div className="mt-2">
+          <div className="flex items-center justify-between mb-0.5">
+            <span
+              className="text-xs text-slate-400"
+              title="Estimated GPU/CPU compute load relative to other AI categories (0 = minimal, 100 = maximum)"
+            >
+              ⚡ Compute intensity · {
+                sub.compute_intensity_score < 30 ? 'Low' :
+                sub.compute_intensity_score < 55 ? 'Moderate' :
+                sub.compute_intensity_score < 75 ? 'High' : 'Very high'
+              }
+            </span>
+            <span className="text-xs text-slate-400">{sub.compute_intensity_score}</span>
+          </div>
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={clsx('h-full rounded-full', {
+                'bg-green-400':  sub.compute_intensity_score < 30,
+                'bg-amber-400':  sub.compute_intensity_score >= 30 && sub.compute_intensity_score < 55,
+                'bg-orange-400': sub.compute_intensity_score >= 55 && sub.compute_intensity_score < 75,
+                'bg-red-400':    sub.compute_intensity_score >= 75,
+              })}
+              style={{ width: `${sub.compute_intensity_score}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Water usage */}
+      {sub.water_liters_monthly != null && sub.water_liters_monthly > 0 && (
+        <p
+          className="text-xs text-slate-400 mt-1.5"
+          title="Estimated water used for cooling data center hardware (1.5 L per kWh)"
+        >
+          💧 ~{sub.water_liters_monthly.toFixed(2)} L water/mo
+          <span className="ml-1">· ≈ {(sub.water_liters_monthly / 3.785).toFixed(2)} gal</span>
+        </p>
+      )}
+
       {/* Actions */}
       <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-slate-50">
         {/* Service links */}

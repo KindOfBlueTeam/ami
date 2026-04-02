@@ -133,6 +133,15 @@ const kwhTable: Record<string, Record<string, number>> = {
   writing: { light: 0.30, moderate: 1.20, heavy: 3.60 },
 }
 
+const intensityTable: Record<string, Record<string, number>> = {
+  chat:    { light: 20, moderate: 28, heavy: 35 },
+  coding:  { light: 20, moderate: 28, heavy: 35 },
+  writing: { light: 20, moderate: 28, heavy: 35 },
+  image:   { light: 50, moderate: 65, heavy: 80 },
+  audio:   { light: 55, moderate: 70, heavy: 80 },
+  video:   { light: 70, moderate: 85, heavy: 95 },
+}
+
 function enrichSub(sub: Subscription): Subscription {
   const provider = findProvider(sub.provider_id)
   const plan = findPlan(sub.plan_id)
@@ -142,6 +151,7 @@ function enrichSub(sub: Subscription): Subscription {
   const catalogDefault = sub.billing_interval === 'annual'
     ? (plan?.price_annual_total ?? null)
     : (plan?.price_monthly ?? null)
+  const intensity = (intensityTable[category] ?? intensityTable['chat'])[sub.usage_estimate] ?? 28
   return {
     ...sub,
     provider,
@@ -151,6 +161,8 @@ function enrichSub(sub: Subscription): Subscription {
     estimated_kwh_monthly: parseFloat(kwh.toFixed(3)),
     estimated_co2e_kg_monthly: parseFloat((kwh * 0.386).toFixed(4)),
     co2_miles_equivalent_monthly: Math.round((kwh * 0.386) / 0.404),
+    compute_intensity_score: intensity,
+    water_liters_monthly: parseFloat((kwh * 1.5).toFixed(2)),
   }
 }
 
@@ -620,7 +632,7 @@ export const completeOnboarding = async (data: OnboardingComplete): Promise<Subs
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         provider: null, plan: null,
-        monthly_cost: null, estimated_kwh_monthly: null, estimated_co2e_kg_monthly: null, co2_miles_equivalent_monthly: null,
+        monthly_cost: null, estimated_kwh_monthly: null, estimated_co2e_kg_monthly: null, co2_miles_equivalent_monthly: null, compute_intensity_score: null, water_liters_monthly: null,
       }
       subscriptions.push(sub)
       upserted.push(sub)

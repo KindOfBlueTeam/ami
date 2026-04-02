@@ -37,6 +37,28 @@ def _provider_read(p: Provider) -> ProviderRead:
     )
 
 
+_COMPUTE_INTENSITY: dict[tuple[str, str], int] = {
+    ("chat",    "light"):    20,
+    ("chat",    "moderate"): 28,
+    ("chat",    "heavy"):    35,
+    ("coding",  "light"):    20,
+    ("coding",  "moderate"): 28,
+    ("coding",  "heavy"):    35,
+    ("writing", "light"):    20,
+    ("writing", "moderate"): 28,
+    ("writing", "heavy"):    35,
+    ("image",   "light"):    50,
+    ("image",   "moderate"): 65,
+    ("image",   "heavy"):    80,
+    ("audio",   "light"):    55,
+    ("audio",   "moderate"): 70,
+    ("audio",   "heavy"):    80,
+    ("video",   "light"):    70,
+    ("video",   "moderate"): 85,
+    ("video",   "heavy"):    95,
+}
+
+
 def _enrich(sub: Subscription, session: Session) -> SubscriptionRead:
     provider = session.get(Provider, sub.provider_id)
     plan = session.get(Plan, sub.plan_id) if sub.plan_id else None
@@ -47,6 +69,8 @@ def _enrich(sub: Subscription, session: Session) -> SubscriptionRead:
     kwh = estimate_kwh(category, sub.usage_estimate)
     co2e = round(kwh * CO2E_KG_PER_KWH, 4)
     miles = round(co2e / CO2E_KG_PER_MILE)
+    intensity = _COMPUTE_INTENSITY.get((category, sub.usage_estimate), 30)
+    water = round(kwh * 1.5, 2)
 
     return SubscriptionRead(
         **sub.model_dump(),
@@ -56,6 +80,8 @@ def _enrich(sub: Subscription, session: Session) -> SubscriptionRead:
         estimated_kwh_monthly=round(kwh, 3),
         estimated_co2e_kg_monthly=co2e,
         co2_miles_equivalent_monthly=miles,
+        compute_intensity_score=intensity,
+        water_liters_monthly=water,
     )
 
 

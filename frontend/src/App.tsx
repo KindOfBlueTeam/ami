@@ -9,6 +9,7 @@ import Services from './pages/Services'
 import Usage from './pages/Usage'
 import Recommendations from './pages/Recommendations'
 import Settings from './pages/Settings'
+import Methodology from './pages/Methodology'
 
 function AppRoutes() {
   const { data, isLoading: statusLoading } = useQuery({
@@ -68,6 +69,10 @@ function AppRoutes() {
         <Route
           path="/settings"
           element={complete ? <Settings /> : <Navigate to="/onboarding" replace />}
+        />
+        <Route
+          path="/methodology"
+          element={complete ? <Methodology /> : <Navigate to="/onboarding" replace />}
         />
       </Route>
       <Route

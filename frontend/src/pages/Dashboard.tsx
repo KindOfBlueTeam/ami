@@ -90,6 +90,11 @@ export default function Dashboard() {
     [active],
   )
 
+  const totalWaterMonthly = useMemo(
+    () => active.reduce((sum, s) => sum + (s.water_liters_monthly ?? 0), 0),
+    [active],
+  )
+
   const nextRenewal = useMemo(() => {
     const upcoming = active
       .map((s) => ({ ...s, days: differenceInDays(parseISO(s.renewal_date), new Date()) }))
@@ -202,7 +207,7 @@ export default function Dashboard() {
         <StatCard
           label="Est. CO₂e / mo"
           value={`${totalCo2Monthly.toFixed(2)} kg`}
-          sub="rough estimate · see methodology"
+          sub="rough estimate"
           accent="default"
         />
       </div>
@@ -260,6 +265,43 @@ export default function Dashboard() {
                 )
               })}
           </div>
+        </div>
+      )}
+
+      {/* Annual ecological impact */}
+      {active.length > 0 && (
+        <div className="card p-5">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="text-sm font-medium text-slate-600">Annual ecological impact</h2>
+            <Link to="/methodology" className="text-xs text-sage-600 hover:text-sage-700">
+              see methodology
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-slate-400 mb-1">CO₂ equivalent</p>
+              <p className="text-xl font-semibold text-slate-800">
+                {(totalCo2Monthly * 12).toFixed(1)}
+                <span className="text-sm font-normal text-slate-400 ml-1">kg / yr</span>
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                ≈ driving {Math.round((totalCo2Monthly * 12) / 0.404).toLocaleString()} mi
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Water usage</p>
+              <p className="text-xl font-semibold text-slate-800">
+                {(totalWaterMonthly * 12).toFixed(0)}
+                <span className="text-sm font-normal text-slate-400 ml-1">L / yr</span>
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                ≈ {((totalWaterMonthly * 12) / 3.785).toFixed(0)} gal
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-slate-300 mt-4 pt-4 border-t border-slate-50">
+            Projected from current monthly estimates × 12. Rough order-of-magnitude only.
+          </p>
         </div>
       )}
 
