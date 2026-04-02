@@ -103,20 +103,51 @@ export default function ServiceCard({ sub, onEdit, onDelete }: Props) {
       )}
 
       {/* Actions */}
-      {(onEdit || onDelete) && (
-        <div className="flex gap-2 mt-4 pt-4 border-t border-slate-50">
-          {onEdit && (
-            <button onClick={onEdit} className="btn-ghost text-xs py-1 px-2">
-              Edit
-            </button>
-          )}
-          {onDelete && (
-            <button onClick={onDelete} className="btn-danger text-xs py-1 px-2">
-              Remove
-            </button>
-          )}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-slate-50">
+        {/* Service links */}
+        {sub.provider?.account_url && (
+          <a
+            href={sub.provider.account_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-ghost text-xs py-1 px-2"
+          >
+            Manage account ↗
+          </a>
+        )}
+        {sub.provider?.billing_url && (
+          <a
+            href={sub.provider.billing_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-ghost text-xs py-1 px-2"
+          >
+            Billing ↗
+          </a>
+        )}
+        {sub.provider?.link_notes && (
+          <span
+            className="text-xs text-slate-400 cursor-help select-none"
+            title={sub.provider.link_notes}
+          >
+            ⓘ
+          </span>
+        )}
+
+        {/* Spacer pushes edit/remove to the right */}
+        <span className="flex-1" />
+
+        {onEdit && (
+          <button onClick={onEdit} className="btn-ghost text-xs py-1 px-2">
+            Edit
+          </button>
+        )}
+        {onDelete && (
+          <button onClick={onDelete} className="btn-danger text-xs py-1 px-2">
+            Remove
+          </button>
+        )}
+      </div>
     </div>
   )
 }

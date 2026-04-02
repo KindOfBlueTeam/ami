@@ -110,6 +110,9 @@ class ProviderRead(SQLModel):
     category: str
     logo_color: str
     is_consumer: bool
+    account_url: Optional[str] = None
+    billing_url: Optional[str] = None
+    link_notes: Optional[str] = None
 
 
 # ── Plans ──────────────────────────────────────────────────────────────────────

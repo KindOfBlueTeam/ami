@@ -33,6 +33,9 @@ export interface Provider {
   category: string
   logo_color: string
   is_consumer: boolean
+  account_url: string | null
+  billing_url: string | null
+  link_notes: string | null
 }
 
 export interface Plan {
