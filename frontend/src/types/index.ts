@@ -46,6 +46,8 @@ export interface Plan {
   price_annual_total: number | null
   is_free: boolean
   notes: string | null
+  billing_interval?: BillingIntervalEnum | null
+  slug?: string | null
 }
 
 // ── Subscriptions ──────────────────────────────────────────────────────────────

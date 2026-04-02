@@ -103,36 +103,64 @@ function ServiceSetup({
     queryFn: () => fetchPlansForProvider(draft.provider.id),
   })
 
-  const hasAnnualOption = (draft.selectedPlan?.price_annual_total ?? null) != null
-  const currentInterval = draft.billing_interval ?? 'monthly'
+  const [billingType, setBillingType] = useState<'free' | 'monthly' | 'annual'>(() => {
+    if (draft.billing_interval === 'annual') return 'annual'
+    if (draft.priceConfirmed && draft.cost === 0 && !draft.selectedPlan) return 'free'
+    return 'monthly'
+  })
+
+  const currentInterval: 'monthly' | 'annual' = billingType === 'annual' ? 'annual' : 'monthly'
   const catalogPrice = getCatalogPrice(draft.selectedPlan, currentInterval)
 
+  const filteredPlans = plans.filter((p) => {
+    if (p.is_free) return false
+    if (billingType === 'annual') return p.billing_interval === 'annual'
+    return p.billing_interval === 'monthly' || !p.billing_interval
+  })
+
+  const handleBillingTypeChange = (type: 'free' | 'monthly' | 'annual') => {
+    setBillingType(type)
+    if (type === 'free') {
+      onChange({
+        ...draft,
+        selectedPlan: undefined,
+        plan_id: null,
+        custom_plan_name: null,
+        cost: 0,
+        catalog_price_usd: 0,
+        price_differs_from_catalog: false,
+        billing_interval: 'monthly',
+        priceConfirmed: true,
+        priceEditing: false,
+      })
+    } else {
+      onChange({
+        ...draft,
+        selectedPlan: undefined,
+        plan_id: null,
+        custom_plan_name: undefined,
+        cost: 0,
+        catalog_price_usd: null,
+        price_differs_from_catalog: false,
+        billing_interval: type,
+        priceConfirmed: false,
+        priceEditing: false,
+      })
+    }
+  }
+
   const handlePlanSelect = (plan: Plan | null) => {
-    const interval = 'monthly'
-    const catalog = getCatalogPrice(plan, interval)
+    const catalog = getCatalogPrice(plan, currentInterval)
     onChange({
       ...draft,
       selectedPlan: plan,
       plan_id: plan?.id ?? null,
       custom_plan_name: plan ? null : '',
-      billing_interval: interval,
+      billing_interval: currentInterval,
       cost: catalog ?? 0,
       catalog_price_usd: catalog,
       price_differs_from_catalog: false,
-      priceConfirmed: plan?.is_free ?? false,
-      priceEditing: false,
-    })
-  }
-
-  const handleIntervalChange = (interval: 'monthly' | 'annual') => {
-    const catalog = getCatalogPrice(draft.selectedPlan, interval)
-    onChange({
-      ...draft,
-      billing_interval: interval,
-      cost: catalog ?? draft.cost ?? 0,
-      catalog_price_usd: catalog,
-      price_differs_from_catalog: false,
-      priceConfirmed: draft.selectedPlan?.is_free ?? false,
+      priceConfirmed: false,
       priceEditing: false,
     })
   }
@@ -160,46 +188,89 @@ function ServiceSetup({
 
   return (
     <div className="space-y-5">
-      {/* 1. Plan selection */}
+      {/* 1. Billing type toggle */}
       <div>
-        <label className="label">Plan</label>
-        <div className="grid grid-cols-2 gap-2">
-          {plans.map((plan) => (
+        <label className="label">How do you subscribe?</label>
+        <div className="grid grid-cols-3 gap-2">
+          {(['free', 'monthly', 'annual'] as const).map((type) => (
             <button
-              key={plan.id}
-              onClick={() => handlePlanSelect(plan)}
+              key={type}
+              onClick={() => handleBillingTypeChange(type)}
               className={clsx(
-                'text-left p-3 rounded-lg border text-sm transition-colors',
-                draft.plan_id === plan.id
+                'p-3 rounded-lg border text-sm font-medium transition-colors capitalize',
+                billingType === type
                   ? 'border-sage-400 bg-sage-400/5 text-sage-700'
-                  : 'border-slate-200 hover:border-slate-300 text-slate-700',
+                  : 'border-slate-200 hover:border-slate-300 text-slate-600',
               )}
             >
-              <span className="font-medium">{plan.name}</span>
-              <span className="block text-xs text-slate-400 mt-0.5">
-                {plan.is_free
-                  ? 'Free'
-                  : plan.price_annual_total
-                  ? `$${plan.price_monthly}/mo or $${plan.price_annual_total}/yr`
-                  : `$${plan.price_monthly}/mo`}
-              </span>
+              {type === 'free' ? '🆓 Free' : type === 'monthly' ? '📅 Monthly' : '🗓 Yearly'}
             </button>
           ))}
-          <button
-            onClick={() => handlePlanSelect(null)}
-            className={clsx(
-              'text-left p-3 rounded-lg border text-sm transition-colors',
-              draft.selectedPlan === null && draft.plan_id === null
-                ? 'border-sage-400 bg-sage-400/5'
-                : 'border-slate-200 hover:border-slate-300',
-            )}
-          >
-            <span className="font-medium text-slate-700">Other / Custom</span>
-            <span className="block text-xs text-slate-400 mt-0.5">Enter manually</span>
-          </button>
         </div>
+      </div>
 
-        {draft.selectedPlan === null && draft.custom_plan_name !== undefined && (
+      {/* 2. Plan selection */}
+      <div>
+        <label className="label">Plan</label>
+
+        {billingType === 'free' ? (
+          /* Free tier — just Other/Custom */
+          <div>
+            <button
+              onClick={() => handlePlanSelect(null)}
+              className="w-full text-left p-3 rounded-lg border border-sage-400 bg-sage-400/5 text-sm"
+            >
+              <span className="font-medium text-sage-700">Free tier</span>
+              <span className="block text-xs text-slate-400 mt-0.5">$0 / no charge</span>
+            </button>
+            <input
+              className="input mt-2"
+              placeholder="Plan name (optional)"
+              value={draft.custom_plan_name ?? ''}
+              onChange={(e) => onChange({ ...draft, custom_plan_name: e.target.value })}
+            />
+          </div>
+        ) : (
+          /* Monthly or Yearly — show filtered plan buttons */
+          <div className="grid grid-cols-2 gap-2">
+            {filteredPlans.map((plan) => {
+              const price = billingType === 'annual'
+                ? plan.price_annual_total != null
+                  ? `$${plan.price_annual_total}/yr`
+                  : `$${(plan.price_monthly * 12).toFixed(0)}/yr`
+                : `$${plan.price_monthly}/mo`
+              return (
+                <button
+                  key={plan.id}
+                  onClick={() => handlePlanSelect(plan)}
+                  className={clsx(
+                    'text-left p-3 rounded-lg border text-sm transition-colors',
+                    draft.plan_id === plan.id
+                      ? 'border-sage-400 bg-sage-400/5 text-sage-700'
+                      : 'border-slate-200 hover:border-slate-300 text-slate-700',
+                  )}
+                >
+                  <span className="font-medium">{plan.name}</span>
+                  <span className="block text-xs text-slate-400 mt-0.5">{price}</span>
+                </button>
+              )
+            })}
+            <button
+              onClick={() => handlePlanSelect(null)}
+              className={clsx(
+                'text-left p-3 rounded-lg border text-sm transition-colors',
+                draft.selectedPlan === null && draft.plan_id === null && draft.custom_plan_name !== undefined && billingType !== 'free'
+                  ? 'border-sage-400 bg-sage-400/5'
+                  : 'border-slate-200 hover:border-slate-300',
+              )}
+            >
+              <span className="font-medium text-slate-700">Other / Custom</span>
+              <span className="block text-xs text-slate-400 mt-0.5">Enter manually</span>
+            </button>
+          </div>
+        )}
+
+        {draft.selectedPlan === null && draft.custom_plan_name !== undefined && billingType !== 'free' && (
           <input
             className="input mt-2"
             placeholder="Plan name"
@@ -208,37 +279,6 @@ function ServiceSetup({
           />
         )}
       </div>
-
-      {/* 2. Billing interval — only shown when the plan offers annual */}
-      {draft.selectedPlan && !draft.selectedPlan.is_free && hasAnnualOption && (
-        <div>
-          <label className="label">How are you billed?</label>
-          <div className="grid grid-cols-2 gap-2">
-            {(['monthly', 'annual'] as const).map((interval) => {
-              const price = getCatalogPrice(draft.selectedPlan, interval)
-              return (
-                <button
-                  key={interval}
-                  onClick={() => handleIntervalChange(interval)}
-                  className={clsx(
-                    'text-left p-3 rounded-lg border text-sm transition-colors capitalize',
-                    currentInterval === interval
-                      ? 'border-sage-400 bg-sage-400/5 text-sage-700'
-                      : 'border-slate-200 hover:border-slate-300 text-slate-700',
-                  )}
-                >
-                  <span className="font-medium block">{interval}</span>
-                  <span className="text-xs text-slate-400">
-                    {interval === 'annual'
-                      ? `$${price}/yr · $${((price ?? 0) / 12).toFixed(2)}/mo`
-                      : `$${price}/mo`}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {/* 3. Price verification — shown once a paid plan is selected */}
       {draft.selectedPlan && !draft.selectedPlan.is_free && catalogPrice !== null && (
@@ -315,36 +355,25 @@ function ServiceSetup({
         </div>
       )}
 
-      {/* 3b. Manual cost entry for custom / unknown plans */}
-      {draft.selectedPlan === null && (
+      {/* 3b. Manual cost entry for custom / unknown plans (not shown for free tier) */}
+      {draft.selectedPlan === null && billingType !== 'free' && draft.custom_plan_name !== undefined && (
         <div>
           <label className="label">What do you pay?</label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                $
-              </span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                className="input pl-7"
-                placeholder="0.00"
-                value={draft.cost ?? ''}
-                onChange={(e) => onChange({ ...draft, cost: parseFloat(e.target.value) || 0 })}
-              />
-            </div>
-            <select
-              className="input w-36"
-              value={currentInterval}
-              onChange={(e) =>
-                onChange({ ...draft, billing_interval: e.target.value as 'monthly' | 'annual' })
-              }
-            >
-              <option value="monthly">/ month</option>
-              <option value="annual">/ year</option>
-            </select>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="input pl-7"
+              placeholder="0.00"
+              value={draft.cost ?? ''}
+              onChange={(e) => onChange({ ...draft, cost: parseFloat(e.target.value) || 0 })}
+            />
           </div>
+          <p className="text-xs text-slate-400 mt-1">
+            per {currentInterval === 'annual' ? 'year' : 'month'}
+          </p>
         </div>
       )}
 
@@ -694,7 +723,7 @@ export default function Onboarding() {
         {step === 'select-services' && (
           <Card>
             <h2 className="text-xl font-semibold text-slate-800 mb-1">
-              Which AI services do you pay for?
+              Which AI services do you use?
             </h2>
             <Prose>Select everything you have an active subscription for, including free plans.</Prose>
 
@@ -725,31 +754,54 @@ export default function Onboarding() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-2 mt-6">
-              {providers.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => toggleProvider(p.id)}
-                  className={clsx(
-                    'flex items-center gap-3 p-3 rounded-xl border text-sm text-left transition-colors',
-                    selectedProviderIds.includes(p.id)
-                      ? 'border-sage-400 bg-sage-400/8 text-sage-800'
-                      : 'border-slate-200 hover:border-slate-300 text-slate-700',
-                  )}
-                >
-                  <ProviderLogo name={p.name} logoColor={p.logo_color} size="sm" />
-                  <div>
-                    <span className="font-medium block">{p.name}</span>
-                    <span className="text-xs text-slate-400">
-                      {CATEGORY_ICONS[p.category]} {p.category}
-                    </span>
-                  </div>
-                  {selectedProviderIds.includes(p.id) && (
-                    <span className="ml-auto text-sage-500 text-sm">✓</span>
-                  )}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const CATEGORY_ORDER = ['chat', 'coding', 'image', 'video', 'audio']
+              const CATEGORY_LABELS: Record<string, string> = {
+                chat:   'Chat & assistants',
+                coding: 'Coding',
+                image:  'Image generation',
+                video:  'Video generation',
+                audio:  'Audio generation',
+              }
+              const grouped = CATEGORY_ORDER
+                .map((cat) => ({
+                  cat,
+                  items: providers.filter((p) => p.category === cat),
+                }))
+                .filter(({ items }) => items.length > 0)
+
+              return (
+                <div className="mt-6 space-y-4">
+                  {grouped.map(({ cat, items }) => (
+                    <div key={cat} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2.5 px-0.5">
+                        {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {items.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => toggleProvider(p.id)}
+                            className={clsx(
+                              'flex items-center gap-3 p-3 rounded-lg border text-sm text-left transition-colors',
+                              selectedProviderIds.includes(p.id)
+                                ? 'border-sage-400 bg-white text-sage-800 shadow-sm'
+                                : 'border-transparent bg-white hover:border-slate-200 text-slate-700',
+                            )}
+                          >
+                            <ProviderLogo name={p.name} logoColor={p.logo_color} size="sm" />
+                            <span className="font-medium">{p.name}</span>
+                            {selectedProviderIds.includes(p.id) && (
+                              <span className="ml-auto text-sage-500 text-sm">✓</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
 
             <div className="flex gap-3 mt-8">
               <button className="btn-secondary" onClick={() => setStep('name-greeting')}>
