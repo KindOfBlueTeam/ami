@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.migrate import run as run_file_migrations
 from database import create_db_and_tables, ensure_default_user, run_migrations
 from routers import (
     dashboard,
@@ -51,6 +52,7 @@ app.include_router(users.router, prefix="/api")
 def on_startup():
     create_db_and_tables()
     run_migrations()
+    run_file_migrations()
     ensure_default_user()
     logger.info("Ami API ready")
 

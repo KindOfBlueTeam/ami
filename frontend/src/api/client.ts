@@ -32,14 +32,6 @@ export const createSubscription      = impl.createSubscription
 export const updateSubscription      = impl.updateSubscription
 export const deleteSubscription      = impl.deleteSubscription
 
-// Usage
-export const fetchPeriods            = impl.fetchPeriods
-export const createPeriod            = impl.createPeriod
-export const deletePeriod            = impl.deletePeriod
-export const fetchEntries            = impl.fetchEntries
-export const createEntry             = impl.createEntry
-export const deleteEntry             = impl.deleteEntry
-
 // Recommendations
 export const fetchRecommendations    = impl.fetchRecommendations
 export const generateRecommendations = impl.generateRecommendations

@@ -96,9 +96,15 @@ class Provider(SQLModel, table=True):
     __tablename__ = "providers"
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
+    slug: Optional[str] = Field(default=None, index=True)
     website: Optional[str] = None
     category: str  # chat | image | audio | video | coding | writing
     logo_color: str = "#6B7280"
+    logo_path: Optional[str] = None
+    account_url: Optional[str] = None
+    billing_url: Optional[str] = None
+    link_notes: Optional[str] = None
+    is_active: bool = True
     is_consumer: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -106,10 +112,13 @@ class Provider(SQLModel, table=True):
 class ProviderRead(SQLModel):
     id: int
     name: str
+    slug: Optional[str] = None
     website: Optional[str]
     category: str
     logo_color: str
+    logo_path: Optional[str] = None
     is_consumer: bool
+    is_active: bool = True
     account_url: Optional[str] = None
     billing_url: Optional[str] = None
     link_notes: Optional[str] = None
@@ -122,7 +131,13 @@ class Plan(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     provider_id: int = Field(foreign_key="providers.id")
     name: str
-    price_monthly: float
+    slug: Optional[str] = Field(default=None, index=True)
+    billing_interval: Optional[str] = None   # "monthly" | "annual" | None (legacy rows)
+    default_price_usd: Optional[float] = None
+    monthly_equivalent_usd: Optional[float] = None
+    is_active: bool = True
+    # Legacy columns — preserved for backward compatibility
+    price_monthly: float = Field(default=0.0)
     price_annual_total: Optional[float] = None
     is_free: bool = False
     notes: Optional[str] = None
@@ -132,6 +147,11 @@ class PlanRead(SQLModel):
     id: int
     provider_id: int
     name: str
+    slug: Optional[str] = None
+    billing_interval: Optional[str] = None
+    default_price_usd: Optional[float] = None
+    monthly_equivalent_usd: Optional[float] = None
+    is_active: bool = True
     price_monthly: float
     price_annual_total: Optional[float]
     is_free: bool

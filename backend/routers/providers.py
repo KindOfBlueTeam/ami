@@ -9,15 +9,22 @@ router = APIRouter(tags=["providers"])
 
 
 def _enrich(p: Provider) -> ProviderRead:
+    # Prefer values stored in the DB (populated by seed_providers).
+    # Fall back to service_links.py for providers seeded before the migration.
     links = get_service_links(p.name)
     return ProviderRead(
         id=p.id,
         name=p.name,
+        slug=p.slug,
         website=p.website,
         category=p.category,
         logo_color=p.logo_color,
+        logo_path=p.logo_path,
         is_consumer=p.is_consumer,
-        **links,
+        is_active=p.is_active if p.is_active is not None else True,
+        account_url=p.account_url or links["account_url"],
+        billing_url=p.billing_url or links["billing_url"],
+        link_notes=p.link_notes or links["link_notes"],
     )
 
 

@@ -1,0 +1,37 @@
+<!--
+  PLACEHOLDER — replace with final artist SVG at final cutover.
+
+  Coordinate contract (must be preserved in final asset):
+    viewBox:   0 0 90 55
+    Fill area: x=8, y=16, width=74, height=26  (interior water basin, bottom-up fill)
+    rx for fill clipPath: 2
+
+  Static artwork vs. runtime state:
+    STATIC  (this file)  — tub body, faucet, feet, drain, inner rim guide
+    DYNAMIC (JS overlay) — water fill rectangle clipped to fill area
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 55" aria-hidden="true">
+
+  <!-- Faucet crossbar -->
+  <rect x="36" y="4" width="18" height="4" rx="2" fill="#cbd5e1"/>
+  <!-- Faucet spout -->
+  <rect x="42" y="8" width="6" height="7" rx="1.5" fill="#e2e8f0"/>
+
+  <!-- Tub exterior body -->
+  <rect x="6" y="13" width="78" height="30" rx="5"
+        fill="white" stroke="#64748b" stroke-width="1.4"/>
+
+  <!-- Inner rim guide — marks the fill area boundary (very subtle) -->
+  <!-- Fill area: x=8, y=16, width=74, height=26 -->
+  <rect x="8" y="16" width="74" height="26" rx="2"
+        fill="none" stroke="#e2e8f0" stroke-width="0.8"/>
+
+  <!-- Drain at bottom center of basin -->
+  <circle cx="45" cy="41" r="2" fill="none" stroke="#94a3b8" stroke-width="1"/>
+  <line x1="45" y1="39.5" x2="45" y2="42.5" stroke="#94a3b8" stroke-width="0.8"/>
+
+  <!-- Feet -->
+  <rect x="10" y="42" width="13" height="7" rx="3.5" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="0.8"/>
+  <rect x="67" y="42" width="13" height="7" rx="3.5" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="0.8"/>
+
+</svg>

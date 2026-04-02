@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchRecommendations,
   generateRecommendations,
   dismissRecommendation,
+  fetchSubscriptions,
 } from '../api/client'
 import RecommendationCard from '../components/RecommendationCard'
+import OffsetPlaceholderCard from '../components/OffsetPlaceholderCard'
 
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
 
@@ -17,6 +19,22 @@ export default function Recommendations() {
     queryKey: ['recommendations', showDismissed],
     queryFn: () => fetchRecommendations(showDismissed),
   })
+
+  const { data: subscriptions = [] } = useQuery({
+    queryKey: ['subscriptions'],
+    queryFn: fetchSubscriptions,
+  })
+
+  const overlaps = useMemo(() => {
+    const byCategory: Record<string, typeof subscriptions> = {}
+    for (const sub of subscriptions) {
+      const cat = sub.provider?.category
+      if (!cat) continue
+      if (!byCategory[cat]) byCategory[cat] = []
+      byCategory[cat].push(sub)
+    }
+    return Object.entries(byCategory).filter(([, group]) => group.length > 1)
+  }, [subscriptions])
 
   const generateMutation = useMutation({
     mutationFn: generateRecommendations,
@@ -78,12 +96,28 @@ export default function Recommendations() {
         </div>
       )}
 
+      {/* Offset placeholder — coming soon */}
+      <OffsetPlaceholderCard />
+
       {/* Disclaimer */}
       <div className="text-xs text-slate-400 bg-slate-50 rounded-lg px-4 py-3">
         Ami's recommendations are based only on data you've entered. Ami cannot see your actual
         usage against plan limits (consumer AI apps don't offer public usage APIs). Use these
         as prompts to review your own usage, not definitive advice.
       </div>
+
+      {/* Overlapping subscriptions warning */}
+      {overlaps.length > 0 && (
+        <div className="card p-5 border-l-4 border-l-orange-300 bg-orange-50/30">
+          <p className="text-sm font-medium text-orange-800 mb-2">Overlapping subscriptions</p>
+          {overlaps.map(([cat, group]) => (
+            <p key={cat} className="text-xs text-orange-700">
+              You have {group.length} {cat} AI subscriptions:{' '}
+              {group.map((s) => s.provider?.name).join(', ')}
+            </p>
+          ))}
+        </div>
+      )}
 
       {/* Recommendations list */}
       {isLoading ? (

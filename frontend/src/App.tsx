@@ -1,12 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getOnboardingStatus, fetchUsers } from './api/client'
+import { UnitSystemProvider } from './contexts/UnitSystemContext'
 import Layout from './components/Layout'
 import Onboarding from './pages/Onboarding'
 import UserSelect from './pages/UserSelect'
 import Dashboard from './pages/Dashboard'
 import Services from './pages/Services'
-import Usage from './pages/Usage'
 import Recommendations from './pages/Recommendations'
 import Settings from './pages/Settings'
 import Methodology from './pages/Methodology'
@@ -59,10 +59,6 @@ function AppRoutes() {
           element={complete ? <Services /> : <Navigate to="/onboarding" replace />}
         />
         <Route
-          path="/usage"
-          element={complete ? <Usage /> : <Navigate to="/onboarding" replace />}
-        />
-        <Route
           path="/recommendations"
           element={complete ? <Recommendations /> : <Navigate to="/onboarding" replace />}
         />
@@ -85,8 +81,10 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <UnitSystemProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </UnitSystemProvider>
   )
 }

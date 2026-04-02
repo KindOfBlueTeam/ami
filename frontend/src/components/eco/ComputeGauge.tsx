@@ -19,8 +19,10 @@ export interface ComputeGaugeProps {
   score: number
   /** Human label: 'Low' | 'Moderate' | 'High' | 'Very High' */
   label: string
-  /** Estimated energy draw for this subscription in kWh/month */
+  /** Estimated energy draw for this subscription in kWh (pre-scaled for the display period) */
   energyKwhMonthly: number
+  /** Controls the period label shown in formatEnergy */
+  period?: 'month' | 'year'
   /** Optional tooltip text shown on hover */
   tooltipText?: string
 }
@@ -29,6 +31,7 @@ export default function ComputeGauge({
   score,
   label,
   energyKwhMonthly,
+  period = 'month',
   tooltipText,
 }: ComputeGaugeProps) {
   const clamped = Math.max(0, Math.min(100, score))
@@ -71,7 +74,7 @@ export default function ComputeGauge({
       {/* Text labels below the gauge */}
       <div className="text-center mt-0.5 space-y-0.5">
         <div className="text-xs font-medium text-slate-600 leading-none">{label}</div>
-        <div className="text-xs text-slate-400 leading-none">{formatEnergy(energyKwhMonthly)}</div>
+        <div className="text-xs text-slate-400 leading-none">{formatEnergy(energyKwhMonthly, period)}</div>
       </div>
     </div>
   )

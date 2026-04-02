@@ -1,14 +1,17 @@
 import { format, parseISO, differenceInDays } from 'date-fns'
 import clsx from 'clsx'
 import type { Subscription } from '../types'
-import ComputeGauge from './eco/ComputeGauge'
-import WaterFlask from './eco/WaterFlask'
-import { computeIntensityLabel, litersToGallons } from '../utils/ecoMetrics'
+import PowerImpactTile from './eco/PowerImpactTile'
+import Co2ImpactTile from './eco/Co2ImpactTile'
+import WaterImpactTile from './eco/WaterImpactTile'
+import ProviderLogo from './ProviderLogo'
+import { computeIntensityLabel } from '../utils/ecoMetrics'
 
 interface Props {
   sub: Subscription
   onEdit?: () => void
   onDelete?: () => void
+  displayMode?: 'monthly' | 'yearly'
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -32,7 +35,8 @@ const USAGE_LABELS: Record<string, string> = {
   heavy:    'Heavy use',
 }
 
-export default function ServiceCard({ sub, onEdit, onDelete }: Props) {
+
+export default function ServiceCard({ sub, onEdit, onDelete, displayMode = 'monthly' }: Props) {
   const renewal = parseISO(sub.renewal_date)
   const daysUntil = differenceInDays(renewal, new Date())
   const renewalLabel = daysUntil === 0
@@ -49,6 +53,15 @@ export default function ServiceCard({ sub, onEdit, onDelete }: Props) {
     sub.billing_interval === 'annual' ? sub.cost / 12 : sub.cost
   )
 
+  // Scale eco values by period multiplier
+  const multiplier = displayMode === 'yearly' ? 12 : 1
+  const period: 'month' | 'year' = displayMode === 'yearly' ? 'year' : 'month'
+
+  const energyKwh  = (sub.estimated_kwh_monthly ?? 0) * multiplier
+  const waterL     = (sub.water_liters_monthly ?? 0) * multiplier
+  const co2Kg      = (sub.estimated_co2e_kg_monthly ?? 0) * multiplier
+  const milesEq    = (sub.co2_miles_equivalent_monthly ?? 0) * multiplier
+
   const hasGauge = sub.compute_intensity_score != null && sub.estimated_kwh_monthly != null
   const hasFlask = sub.water_liters_monthly != null && sub.water_liters_monthly > 0
   const hasCo2   = sub.estimated_co2e_kg_monthly != null
@@ -57,14 +70,13 @@ export default function ServiceCard({ sub, onEdit, onDelete }: Props) {
   return (
     <div className="card p-5 hover:shadow-md transition-shadow duration-150">
       <div className="flex items-start justify-between gap-3">
-        {/* Avatar + name */}
+        {/* Provider logo + name */}
         <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-semibold shrink-0"
-            style={{ backgroundColor: sub.provider?.logo_color ?? '#6B7280' }}
-          >
-            {sub.provider?.name.charAt(0) ?? '?'}
-          </div>
+          <ProviderLogo
+            name={sub.provider?.name ?? '?'}
+            logoColor={sub.provider?.logo_color}
+            size="md"
+          />
           <div>
             <p className="font-medium text-slate-800 leading-tight">
               {sub.provider?.name ?? 'Unknown'}
@@ -98,63 +110,58 @@ export default function ServiceCard({ sub, onEdit, onDelete }: Props) {
           {sub.perceived_value === 'high' ? 'High value' : sub.perceived_value === 'medium' ? 'Medium value' : 'Low value'}
         </span>
         <span className="badge-gray">{USAGE_LABELS[sub.usage_estimate]}</span>
+        <span className={
+          sub.billing_interval === 'annual'  ? 'badge-green' :
+          sub.billing_interval === 'monthly' ? 'badge-amber' :
+                                               'badge-red'
+        }>
+          {sub.billing_interval === 'annual'  ? 'Annual billing'  :
+           sub.billing_interval === 'monthly' ? 'Monthly billing' :
+                                                'Daily billing'}
+        </span>
         <span className={clsx('badge', renewalUrgent ? 'badge-amber' : 'badge-gray')}>
           {renewalLabel}
         </span>
       </div>
 
-      {/* Eco impact panel */}
+      {/* Eco impact — three equal resource tiles: Power → CO₂ → Water */}
       {hasEco && (
-        <div className="mt-3 pt-3 border-t border-slate-50">
-          <div className="flex items-start gap-3">
-
-            {/* Compute gauge */}
+        <div className="mt-4 pt-4 border-t border-slate-50">
+          <p className="text-[10px] uppercase tracking-wide text-slate-300 leading-none mb-2.5">
+            Estimated resource impact
+          </p>
+          <div className="grid grid-cols-3 gap-2">
             {hasGauge && (
-              <div className="w-24 shrink-0">
-                <ComputeGauge
-                  score={sub.compute_intensity_score!}
-                  label={computeIntensityLabel(sub.compute_intensity_score!)}
-                  energyKwhMonthly={sub.estimated_kwh_monthly!}
-                  tooltipText="Relative estimate based on workload type and your usage level"
-                />
-              </div>
+              <PowerImpactTile
+                score={sub.compute_intensity_score!}
+                label={computeIntensityLabel(sub.compute_intensity_score!)}
+                energyKwh={energyKwh}
+                period={period}
+                tooltipText="Relative estimate based on workload type and your usage level"
+              />
             )}
-
-            {/* Water flask */}
-            {hasFlask && (
-              <div className="w-14 shrink-0">
-                <WaterFlask
-                  litersMonthly={sub.water_liters_monthly!}
-                  gallonsMonthly={litersToGallons(sub.water_liters_monthly!)}
-                  tooltipText="Estimated from energy usage using typical data center cooling (~1–2 L per kWh)"
-                />
-              </div>
-            )}
-
-            {/* CO₂ summary — supporting text, lower visual hierarchy */}
             {hasCo2 && (
-              <div className="flex-1 min-w-0 pt-1 space-y-1">
-                <p className="text-xs text-slate-400">
-                  ~{sub.estimated_co2e_kg_monthly!.toFixed(2)} kg CO₂e/mo
-                </p>
-                {sub.co2_miles_equivalent_monthly != null && sub.co2_miles_equivalent_monthly > 0 && (
-                  <p
-                    className="text-xs text-slate-300"
-                    title="Based on average gasoline vehicle emissions (0.404 kg CO₂e/mile)"
-                  >
-                    ≈ {sub.co2_miles_equivalent_monthly} mi driving
-                  </p>
-                )}
-              </div>
+              <Co2ImpactTile
+                co2Kg={co2Kg}
+                milesEq={milesEq}
+                period={period}
+                scaleMax={period === 'year' ? 60 : 5}
+                tooltipText="Based on average US grid carbon intensity (0.386 kg CO₂e / kWh)"
+              />
             )}
-
+            {hasFlask && (
+              <WaterImpactTile
+                litersMonthly={waterL}
+                period={period}
+                tooltipText="Estimated from energy usage using typical data center cooling (~1–2 L per kWh)"
+              />
+            )}
           </div>
         </div>
       )}
 
       {/* Actions */}
       <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-slate-50">
-        {/* Service links */}
         {sub.provider?.account_url && (
           <a
             href={sub.provider.account_url}
@@ -184,7 +191,6 @@ export default function ServiceCard({ sub, onEdit, onDelete }: Props) {
           </span>
         )}
 
-        {/* Spacer pushes edit/remove to the right */}
         <span className="flex-1" />
 
         {onEdit && (

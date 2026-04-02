@@ -97,30 +97,6 @@ export interface SubscriptionCreate {
 
 export interface SubscriptionUpdate extends Partial<SubscriptionCreate> {}
 
-// ── Usage ──────────────────────────────────────────────────────────────────────
-
-export interface UsagePeriod {
-  id: number
-  subscription_id: number
-  period_start: string
-  period_end: string
-  notes: string | null
-  estimated_kwh: number | null
-  estimated_co2e_kg: number | null
-}
-
-export interface UsageEntry {
-  id: number
-  period_id: number
-  entry_date: string
-  activity_type: string
-  quantity: number
-  unit: string
-  notes: string | null
-  estimated_kwh: number | null
-  estimated_co2e_kg: number | null
-}
-
 // ── Recommendations ────────────────────────────────────────────────────────────
 
 export interface Recommendation {

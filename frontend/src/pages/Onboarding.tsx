@@ -11,6 +11,7 @@ import {
   renameUser,
 } from '../api/client'
 import type { OnboardingComplete, OnboardingSubscriptionIn, Provider, Plan } from '../types'
+import ProviderLogo from '../components/ProviderLogo'
 
 // ── Step types ─────────────────────────────────────────────────────────────────
 
@@ -736,12 +737,7 @@ export default function Onboarding() {
                       : 'border-slate-200 hover:border-slate-300 text-slate-700',
                   )}
                 >
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-semibold shrink-0"
-                    style={{ backgroundColor: p.logo_color }}
-                  >
-                    {p.name.charAt(0)}
-                  </div>
+                  <ProviderLogo name={p.name} logoColor={p.logo_color} size="sm" />
                   <div>
                     <span className="font-medium block">{p.name}</span>
                     <span className="text-xs text-slate-400">
@@ -775,12 +771,11 @@ export default function Onboarding() {
         {step === 'setup-service' && drafts[currentServiceIdx] && (
           <Card>
             <div className="flex items-center gap-3 mb-6">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold"
-                style={{ backgroundColor: drafts[currentServiceIdx].provider.logo_color }}
-              >
-                {drafts[currentServiceIdx].provider.name.charAt(0)}
-              </div>
+              <ProviderLogo
+                name={drafts[currentServiceIdx].provider.name}
+                logoColor={drafts[currentServiceIdx].provider.logo_color}
+                size="md"
+              />
               <div>
                 <p className="text-xs text-slate-400">
                   Service {currentServiceIdx + 1} of {drafts.length}
@@ -953,12 +948,7 @@ export default function Onboarding() {
               {drafts.map((d) => (
                 <div key={d.provider.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
                   <div className="flex items-center gap-2">
-                    <div
-                      className="w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-semibold"
-                      style={{ backgroundColor: d.provider.logo_color }}
-                    >
-                      {d.provider.name.charAt(0)}
-                    </div>
+                    <ProviderLogo name={d.provider.name} logoColor={d.provider.logo_color} size="xs" />
                     <span className="text-sm text-slate-700">{d.provider.name}</span>
                   </div>
                   <span className="text-sm font-medium text-slate-600">

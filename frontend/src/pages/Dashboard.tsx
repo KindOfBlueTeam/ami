@@ -2,6 +2,7 @@ import { useMemo, useRef, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO, differenceInDays } from 'date-fns'
+import clsx from 'clsx'
 import {
   fetchSubscriptions,
   fetchRecommendations,
@@ -13,16 +14,57 @@ import {
 } from '../api/client'
 import StatCard from '../components/StatCard'
 import RecommendationCard from '../components/RecommendationCard'
+import ProviderLogo from '../components/ProviderLogo'
+import PowerImpactTile from '../components/eco/PowerImpactTile'
+import Co2ImpactTile from '../components/eco/Co2ImpactTile'
+import WaterImpactTile from '../components/eco/WaterImpactTile'
+import InPerspective from '../components/eco/InPerspective'
+import UnitSystemToggle from '../components/UnitSystemToggle'
 import type { Subscription } from '../types'
+import { computeIntensityLabel } from '../utils/ecoMetrics'
 
 function monthlyCost(sub: Subscription) {
   return sub.monthly_cost ?? (sub.billing_interval === 'annual' ? sub.cost / 12 : sub.cost)
+}
+
+// Segmented toggle shared between this page and Services
+function PeriodToggle({
+  value,
+  onChange,
+}: {
+  value: 'monthly' | 'yearly'
+  onChange: (v: 'monthly' | 'yearly') => void
+}) {
+  return (
+    <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+      <button
+        className={clsx(
+          'px-3 py-1.5 transition-colors',
+          value === 'monthly' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50',
+        )}
+        onClick={() => onChange('monthly')}
+      >
+        Monthly
+      </button>
+      <button
+        className={clsx(
+          'px-3 py-1.5 transition-colors border-l border-slate-200',
+          value === 'yearly' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50',
+        )}
+        onClick={() => onChange('yearly')}
+      >
+        Yearly
+      </button>
+    </div>
+  )
 }
 
 export default function Dashboard() {
   const qc = useQueryClient()
   const [showSwitchMenu, setShowSwitchMenu] = useState(false)
   const switchMenuRef = useRef<HTMLDivElement>(null)
+  // Ecological impact display mode — defaults to yearly to match prior "annual" framing
+  const [ecoMode, setEcoMode] = useState<'monthly' | 'yearly'>('yearly')
 
   const { data: subs = [] } = useQuery({
     queryKey: ['subscriptions'],
@@ -95,6 +137,11 @@ export default function Dashboard() {
     [active],
   )
 
+  const totalKwhMonthly = useMemo(
+    () => active.reduce((sum, s) => sum + (s.estimated_kwh_monthly ?? 0), 0),
+    [active],
+  )
+
   const nextRenewal = useMemo(() => {
     const upcoming = active
       .map((s) => ({ ...s, days: differenceInDays(parseISO(s.renewal_date), new Date()) }))
@@ -114,6 +161,22 @@ export default function Dashboard() {
   }, [active])
 
   const topRecs = recs.slice(0, 3)
+
+  // Average compute intensity across active services (for the aggregate Power tile gauge)
+  const avgScore = useMemo(() => {
+    const withScore = active.filter((s) => s.compute_intensity_score != null)
+    if (withScore.length === 0) return 50
+    return withScore.reduce((sum, s) => sum + s.compute_intensity_score!, 0) / withScore.length
+  }, [active])
+
+  // Eco values scaled to the selected display period
+  const ecoMultiplier = ecoMode === 'yearly' ? 12 : 1
+  const ecoPeriod     = ecoMode === 'yearly' ? 'year' : 'month'
+
+  const co2Display   = totalCo2Monthly  * ecoMultiplier
+  const waterDisplay = totalWaterMonthly * ecoMultiplier
+  const kwhDisplay   = totalKwhMonthly  * ecoMultiplier
+  const drivingMi    = co2Display / 0.404  // driving equivalent in miles; Co2ImpactTile converts to km if needed
 
   return (
     <div className="space-y-8">
@@ -212,19 +275,6 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Overlap warning */}
-      {overlaps.length > 0 && (
-        <div className="card p-5 border-l-4 border-l-orange-300 bg-orange-50/30">
-          <p className="text-sm font-medium text-orange-800 mb-2">Overlapping subscriptions</p>
-          {overlaps.map(([cat, group]) => (
-            <p key={cat} className="text-xs text-orange-700">
-              You have {group.length} {cat} AI subscriptions:{' '}
-              {group.map((s) => s.provider?.name).join(', ')}
-            </p>
-          ))}
-        </div>
-      )}
-
       {/* Spending breakdown */}
       {active.length > 0 && (
         <div className="card p-5">
@@ -239,12 +289,11 @@ export default function Dashboard() {
                   <div key={s.id}>
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                        <div
-                          className="w-5 h-5 rounded text-white text-xs flex items-center justify-center font-semibold"
-                          style={{ backgroundColor: s.provider?.logo_color ?? '#6B7280' }}
-                        >
-                          {s.provider?.name.charAt(0)}
-                        </div>
+                        <ProviderLogo
+                          name={s.provider?.name ?? '?'}
+                          logoColor={s.provider?.logo_color}
+                          size="sm"
+                        />
                         <span className="text-sm text-slate-700">{s.provider?.name}</span>
                       </div>
                       <span className="text-sm font-medium text-slate-700">
@@ -268,41 +317,65 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Annual ecological impact */}
+      {/* Ecological impact — three resource tiles: Power → CO₂ → Water */}
       {active.length > 0 && (
         <div className="card p-5">
-          <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-sm font-medium text-slate-600">Annual ecological impact</h2>
-            <Link to="/methodology" className="text-xs text-sage-600 hover:text-sage-700">
-              see methodology
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-slate-400 mb-1">CO₂ equivalent</p>
-              <p className="text-xl font-semibold text-slate-800">
-                {(totalCo2Monthly * 12).toFixed(1)}
-                <span className="text-sm font-normal text-slate-400 ml-1">kg / yr</span>
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                ≈ driving {Math.round((totalCo2Monthly * 12) / 0.404).toLocaleString()} mi
-              </p>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-baseline gap-3">
+              <h2 className="text-sm font-medium text-slate-600">Ecological impact</h2>
+              <Link to="/methodology" className="text-xs text-sage-600 hover:text-sage-700">
+                see methodology
+              </Link>
             </div>
-            <div>
-              <p className="text-xs text-slate-400 mb-1">Water usage</p>
-              <p className="text-xl font-semibold text-slate-800">
-                {(totalWaterMonthly * 12).toFixed(0)}
-                <span className="text-sm font-normal text-slate-400 ml-1">L / yr</span>
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                ≈ {((totalWaterMonthly * 12) / 3.785).toFixed(0)} gal
-              </p>
+            <div className="flex items-center gap-2">
+              <UnitSystemToggle />
+              <PeriodToggle value={ecoMode} onChange={setEcoMode} />
             </div>
           </div>
-          <p className="text-xs text-slate-300 mt-4 pt-4 border-t border-slate-50">
-            Projected from current monthly estimates × 12. Rough order-of-magnitude only.
+
+          <p className="text-[10px] uppercase tracking-wide text-slate-300 leading-none mb-3">
+            Estimated resource impact across all services
+          </p>
+
+          {/* Three tiles */}
+          <div className="grid grid-cols-3 gap-3">
+            <PowerImpactTile
+              score={avgScore}
+              label={computeIntensityLabel(avgScore)}
+              energyKwh={kwhDisplay}
+              period={ecoPeriod}
+              tooltipText="Average compute intensity across your active services"
+            />
+            <Co2ImpactTile
+              co2Kg={co2Display}
+              milesEq={drivingMi}
+              period={ecoPeriod}
+              scaleMax={ecoPeriod === 'year' ? 240 : 20}
+              tooltipText="Based on average US grid carbon intensity (0.386 kg CO₂e / kWh)"
+            />
+            <WaterImpactTile
+              litersMonthly={waterDisplay}
+              period={ecoPeriod}
+              tooltipText="Estimated from energy usage using typical data center cooling (~1–2 L per kWh)"
+            />
+          </div>
+
+          <p className="text-xs text-slate-300 mt-4">
+            {ecoMode === 'yearly'
+              ? 'Projected from current monthly estimates × 12. Rough order-of-magnitude only.'
+              : 'Current monthly estimates. Rough order-of-magnitude only.'}
           </p>
         </div>
+      )}
+
+      {/* In Perspective — humanized equivalences */}
+      {active.length > 0 && (kwhDisplay > 0 || waterDisplay > 0) && (
+        <InPerspective
+          kwhTotal={kwhDisplay}
+          litersTotal={waterDisplay}
+          period={ecoPeriod}
+        />
       )}
 
       {/* Recommendations preview */}

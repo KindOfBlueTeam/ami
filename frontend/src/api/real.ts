@@ -11,8 +11,6 @@ import type {
   SubscriptionUpdate,
   User,
   UserCreate,
-  UsageEntry,
-  UsagePeriod,
 } from '../types'
 
 const api = axios.create({
@@ -63,25 +61,6 @@ export const updateSubscription = (
 
 export const deleteSubscription = (id: number): Promise<void> =>
   api.delete(`/subscriptions/${id}`)
-
-// ── Usage ──────────────────────────────────────────────────────────────────────
-export const fetchPeriods = (subscriptionId?: number): Promise<UsagePeriod[]> =>
-  api.get('/usage/periods', { params: { subscription_id: subscriptionId } }).then((r) => r.data)
-
-export const createPeriod = (data: Omit<UsagePeriod, 'id'>): Promise<UsagePeriod> =>
-  api.post('/usage/periods', data).then((r) => r.data)
-
-export const deletePeriod = (id: number): Promise<void> =>
-  api.delete(`/usage/periods/${id}`)
-
-export const fetchEntries = (periodId: number): Promise<UsageEntry[]> =>
-  api.get(`/usage/periods/${periodId}/entries`).then((r) => r.data)
-
-export const createEntry = (data: Omit<UsageEntry, 'id'>): Promise<UsageEntry> =>
-  api.post('/usage/entries', data).then((r) => r.data)
-
-export const deleteEntry = (id: number): Promise<void> =>
-  api.delete(`/usage/entries/${id}`)
 
 // ── Recommendations ────────────────────────────────────────────────────────────
 export const fetchRecommendations = (

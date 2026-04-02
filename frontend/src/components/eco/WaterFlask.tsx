@@ -26,10 +26,14 @@ const GRAD_MARKS: Array<{ liters: number; y: number }> = [
 ]
 
 export interface WaterFlaskProps {
-  /** Estimated monthly cooling water in liters */
+  /** Estimated cooling water in liters (pre-scaled for the display period) */
   litersMonthly: number
   /** Same value converted to US gallons (use litersToGallons from ecoMetrics) */
   gallonsMonthly: number
+  /** Controls the period label in the text below the flask */
+  period?: 'month' | 'year'
+  /** Controls whether labels show metric (L primary) or imperial (gal primary) */
+  unitSystem?: 'metric' | 'imperial'
   /** Optional tooltip text shown on hover */
   tooltipText?: string
 }
@@ -37,8 +41,12 @@ export interface WaterFlaskProps {
 export default function WaterFlask({
   litersMonthly,
   gallonsMonthly,
+  period = 'month',
+  unitSystem = 'metric',
   tooltipText,
 }: WaterFlaskProps) {
+  const periodLabel = period === 'year' ? 'yr' : 'month'
+  const isImperial  = unitSystem === 'imperial'
   const clipId = useId()
   const isOverScale = litersMonthly > SCALE_MAX
   const fillFrac = Math.min(litersMonthly / SCALE_MAX, 1.0)
@@ -101,12 +109,15 @@ export default function WaterFlask({
 
       {/* Text labels below the flask */}
       <div className="text-center mt-0.5 space-y-0.5">
-        <div className="text-xs font-medium text-slate-600 leading-none">
-          ~{litersMonthly.toFixed(1)} L / month
-        </div>
-        <div className="text-xs text-slate-400 leading-none">
-          ≈ {gallonsMonthly.toFixed(1)} gal
-        </div>
+        {isImperial ? (
+          <div className="text-xs font-medium text-slate-600 leading-none">
+            ~{gallonsMonthly.toFixed(2)} gal / {periodLabel}
+          </div>
+        ) : (
+          <div className="text-xs font-medium text-slate-600 leading-none">
+            ~{litersMonthly.toFixed(1)} L / {periodLabel}
+          </div>
+        )}
         {isOverScale && (
           <div className="text-xs text-slate-300 italic leading-none">beyond scale</div>
         )}

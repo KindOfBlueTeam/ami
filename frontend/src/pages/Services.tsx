@@ -11,6 +11,7 @@ import {
   deleteSubscription,
 } from '../api/client'
 import ServiceCard from '../components/ServiceCard'
+import UnitSystemToggle from '../components/UnitSystemToggle'
 import type { Plan, Provider, Subscription, SubscriptionCreate } from '../types'
 
 interface FormState {
@@ -272,6 +273,7 @@ export default function Services() {
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState<FormState>(defaultForm())
+  const [displayMode, setDisplayMode] = useState<'monthly' | 'yearly'>('monthly')
 
   const { data: subs = [], isLoading } = useQuery({
     queryKey: ['subscriptions'],
@@ -340,21 +342,49 @@ export default function Services() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">Services</h1>
           <p className="text-sm text-slate-400 mt-0.5">{active.length} active</p>
         </div>
-        <button
-          className="btn-primary text-sm"
-          onClick={() => {
-            setShowAdd(true)
-            setEditingId(null)
-            setForm(defaultForm())
-          }}
-        >
-          + Add service
-        </button>
+        <div className="flex items-center gap-2">
+          <UnitSystemToggle />
+          {/* Monthly / Yearly eco toggle */}
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+            <button
+              className={clsx(
+                'px-3 py-1.5 transition-colors',
+                displayMode === 'monthly'
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-500 hover:bg-slate-50',
+              )}
+              onClick={() => setDisplayMode('monthly')}
+            >
+              Monthly
+            </button>
+            <button
+              className={clsx(
+                'px-3 py-1.5 transition-colors border-l border-slate-200',
+                displayMode === 'yearly'
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-500 hover:bg-slate-50',
+              )}
+              onClick={() => setDisplayMode('yearly')}
+            >
+              Yearly
+            </button>
+          </div>
+          <button
+            className="btn-primary text-sm"
+            onClick={() => {
+              setShowAdd(true)
+              setEditingId(null)
+              setForm(defaultForm())
+            }}
+          >
+            + Add service
+          </button>
+        </div>
       </div>
 
       {/* Add form */}
@@ -403,6 +433,7 @@ export default function Services() {
                 <ServiceCard
                   key={sub.id}
                   sub={sub}
+                  displayMode={displayMode}
                   onEdit={() => startEdit(sub)}
                   onDelete={() => {
                     if (confirm(`Remove ${sub.provider?.name}?`)) {
@@ -424,6 +455,7 @@ export default function Services() {
                   <ServiceCard
                     key={sub.id}
                     sub={sub}
+                    displayMode={displayMode}
                     onEdit={() => startEdit(sub)}
                     onDelete={() => deleteMutation.mutate(sub.id)}
                   />

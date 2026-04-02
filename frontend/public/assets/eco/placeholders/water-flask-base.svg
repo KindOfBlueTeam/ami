@@ -25,34 +25,34 @@
 
   <!-- Neck -->
   <rect x="30" y="10" width="20" height="20" rx="2"
-        fill="white" stroke="#cbd5e1" stroke-width="1.2"/>
+        fill="white" stroke="#64748b" stroke-width="1.8"/>
 
   <!-- Body (fill area: x=10, y=28, w=60, h=82) -->
   <rect x="10" y="28" width="60" height="82" rx="6"
-        fill="white" stroke="#cbd5e1" stroke-width="1.2"/>
+        fill="white" stroke="#64748b" stroke-width="1.8"/>
 
   <!-- Graduation ticks (right inner edge of body) -->
   <!-- 20 L: y=28 -->
-  <line x1="62" y1="28"    x2="70" y2="28"    stroke="#cbd5e1" stroke-width="1"/>
+  <line x1="62" y1="28"    x2="70" y2="28"    stroke="#94a3b8" stroke-width="1.2"/>
   <!-- 15 L: y=48.5 -->
-  <line x1="62" y1="48.5"  x2="70" y2="48.5"  stroke="#cbd5e1" stroke-width="1"/>
+  <line x1="62" y1="48.5"  x2="70" y2="48.5"  stroke="#94a3b8" stroke-width="1.2"/>
   <!-- 10 L: y=69 -->
-  <line x1="62" y1="69"    x2="70" y2="69"    stroke="#cbd5e1" stroke-width="1"/>
+  <line x1="62" y1="69"    x2="70" y2="69"    stroke="#94a3b8" stroke-width="1.2"/>
   <!--  5 L: y=89.5 -->
-  <line x1="62" y1="89.5"  x2="70" y2="89.5"  stroke="#cbd5e1" stroke-width="1"/>
+  <line x1="62" y1="89.5"  x2="70" y2="89.5"  stroke="#94a3b8" stroke-width="1.2"/>
   <!--  1 L: y=105.9 -->
-  <line x1="62" y1="105.9" x2="70" y2="105.9" stroke="#cbd5e1" stroke-width="1"/>
+  <line x1="62" y1="105.9" x2="70" y2="105.9" stroke="#94a3b8" stroke-width="1.2"/>
 
   <!-- Graduation labels (inside body, right-aligned) -->
-  <text x="60" y="31.5"  font-size="5.5" fill="#94a3b8" text-anchor="end"
+  <text x="60" y="31.5"  font-size="5.5" fill="#64748b" text-anchor="end"
         font-family="system-ui, sans-serif">20L</text>
-  <text x="60" y="52"    font-size="5.5" fill="#94a3b8" text-anchor="end"
+  <text x="60" y="52"    font-size="5.5" fill="#64748b" text-anchor="end"
         font-family="system-ui, sans-serif">15L</text>
-  <text x="60" y="72.5"  font-size="5.5" fill="#94a3b8" text-anchor="end"
+  <text x="60" y="72.5"  font-size="5.5" fill="#64748b" text-anchor="end"
         font-family="system-ui, sans-serif">10L</text>
-  <text x="60" y="93"    font-size="5.5" fill="#94a3b8" text-anchor="end"
+  <text x="60" y="93"    font-size="5.5" fill="#64748b" text-anchor="end"
         font-family="system-ui, sans-serif">5L</text>
-  <text x="60" y="109.5" font-size="5.5" fill="#94a3b8" text-anchor="end"
+  <text x="60" y="109.5" font-size="5.5" fill="#64748b" text-anchor="end"
         font-family="system-ui, sans-serif">1L</text>
 
 </svg>

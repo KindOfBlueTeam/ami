@@ -15,8 +15,6 @@ import type {
   SubscriptionUpdate,
   User,
   UserCreate,
-  UsageEntry,
-  UsagePeriod,
 } from '../types'
 
 // ── Simulated network delay ────────────────────────────────────────────────────
@@ -109,8 +107,6 @@ const sunoProPlan      = PLANS[21]  // id:22 Suno Pro
 
 let nextSubId = 5
 let nextRecId = 5
-let nextPeriodId = 2
-let nextEntryId  = 3
 let nextUserId   = 2
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -258,15 +254,6 @@ let recommendations: Recommendation[] = [
   },
 ]
 
-let periods: UsagePeriod[] = [
-  { id: 1, subscription_id: 1, period_start: daysFromNow(-30), period_end: daysFromNow(0), notes: 'March', estimated_kwh: 5.4, estimated_co2e_kg: 2.08 },
-]
-
-let entries: UsageEntry[] = [
-  { id: 1, period_id: 1, entry_date: daysFromNow(-15), activity_type: 'message', quantity: 300, unit: 'messages', notes: 'Typical fortnight', estimated_kwh: 0.9, estimated_co2e_kg: 0.347 },
-  { id: 2, period_id: 1, entry_date: daysFromNow(-2),  activity_type: 'message', quantity: 280, unit: 'messages', notes: null, estimated_kwh: 0.84, estimated_co2e_kg: 0.324 },
-]
-
 let settings: AppSettings = {
   eco_priority: 'medium',
   optimization_style: 'balanced',
@@ -411,54 +398,6 @@ export const updateSubscription = async (
 export const deleteSubscription = async (id: number): Promise<void> => {
   await delay()
   subscriptions = subscriptions.filter((s) => s.id !== id)
-}
-
-// ── Usage ──────────────────────────────────────────────────────────────────────
-
-export const fetchPeriods = async (subscriptionId?: number): Promise<UsagePeriod[]> => {
-  await delay()
-  return subscriptionId
-    ? periods.filter((p) => p.subscription_id === subscriptionId)
-    : periods
-}
-
-export const createPeriod = async (data: Omit<UsagePeriod, 'id'>): Promise<UsagePeriod> => {
-  await delay()
-  const period: UsagePeriod = { id: nextPeriodId++, ...data }
-  periods.push(period)
-  return period
-}
-
-export const deletePeriod = async (id: number): Promise<void> => {
-  await delay()
-  periods = periods.filter((p) => p.id !== id)
-  entries = entries.filter((e) => e.period_id !== id)
-}
-
-export const fetchEntries = async (periodId: number): Promise<UsageEntry[]> => {
-  await delay()
-  return entries.filter((e) => e.period_id === periodId)
-}
-
-export const createEntry = async (data: Omit<UsageEntry, 'id'>): Promise<UsageEntry> => {
-  await delay()
-  const kwhRates: Record<string, number> = {
-    message: 0.003, image: 0.020, audio_min: 0.005, video_min: 0.015, session: 0.030,
-  }
-  const kwh = (kwhRates[data.activity_type] ?? 0.003) * data.quantity
-  const entry: UsageEntry = {
-    ...data,
-    id: nextEntryId++,
-    estimated_kwh: data.estimated_kwh ?? parseFloat(kwh.toFixed(4)),
-    estimated_co2e_kg: data.estimated_co2e_kg ?? parseFloat((kwh * 0.386).toFixed(4)),
-  }
-  entries.push(entry)
-  return entry
-}
-
-export const deleteEntry = async (id: number): Promise<void> => {
-  await delay()
-  entries = entries.filter((e) => e.id !== id)
 }
 
 // ── Recommendations ────────────────────────────────────────────────────────────

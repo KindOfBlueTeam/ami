@@ -4,7 +4,6 @@ import clsx from 'clsx'
 const NAV = [
   { to: '/dashboard',       label: 'Dashboard',       icon: '◆' },
   { to: '/services',        label: 'Services',         icon: '◈' },
-  { to: '/usage',           label: 'Usage',            icon: '◉' },
   { to: '/recommendations', label: 'Recommendations',  icon: '◇' },
   { to: '/settings',        label: 'Settings',         icon: '◎' },
 ]
