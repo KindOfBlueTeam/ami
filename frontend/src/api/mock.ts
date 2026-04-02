@@ -150,6 +150,7 @@ function enrichSub(sub: Subscription): Subscription {
     monthly_cost: parseFloat(monthly_cost.toFixed(2)),
     estimated_kwh_monthly: parseFloat(kwh.toFixed(3)),
     estimated_co2e_kg_monthly: parseFloat((kwh * 0.386).toFixed(4)),
+    co2_miles_equivalent_monthly: Math.round((kwh * 0.386) / 0.404),
   }
 }
 
@@ -619,7 +620,7 @@ export const completeOnboarding = async (data: OnboardingComplete): Promise<Subs
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         provider: null, plan: null,
-        monthly_cost: null, estimated_kwh_monthly: null, estimated_co2e_kg_monthly: null,
+        monthly_cost: null, estimated_kwh_monthly: null, estimated_co2e_kg_monthly: null, co2_miles_equivalent_monthly: null,
       }
       subscriptions.push(sub)
       upserted.push(sub)

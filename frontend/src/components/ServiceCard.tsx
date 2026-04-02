@@ -98,7 +98,15 @@ export default function ServiceCard({ sub, onEdit, onDelete }: Props) {
       {/* Eco estimate */}
       {sub.estimated_co2e_kg_monthly != null && (
         <p className="text-xs text-slate-400 mt-3">
-          ~{sub.estimated_co2e_kg_monthly.toFixed(2)} kg CO₂e/mo estimated
+          ~{sub.estimated_co2e_kg_monthly.toFixed(2)} kg CO₂e/mo
+          {sub.co2_miles_equivalent_monthly != null && sub.co2_miles_equivalent_monthly > 0 && (
+            <span
+              className="ml-1.5"
+              title="Based on average gasoline vehicle emissions (0.404 kg CO₂e/mile)"
+            >
+              · ≈ driving {sub.co2_miles_equivalent_monthly} mi
+            </span>
+          )}
         </p>
       )}
 

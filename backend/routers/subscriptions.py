@@ -41,9 +41,12 @@ def _enrich(sub: Subscription, session: Session) -> SubscriptionRead:
     provider = session.get(Provider, sub.provider_id)
     plan = session.get(Plan, sub.plan_id) if sub.plan_id else None
 
+    CO2E_KG_PER_MILE = 0.404
+
     category = provider.category if provider else "chat"
     kwh = estimate_kwh(category, sub.usage_estimate)
     co2e = round(kwh * CO2E_KG_PER_KWH, 4)
+    miles = round(co2e / CO2E_KG_PER_MILE)
 
     return SubscriptionRead(
         **sub.model_dump(),
@@ -52,6 +55,7 @@ def _enrich(sub: Subscription, session: Session) -> SubscriptionRead:
         monthly_cost=_monthly_cost(sub),
         estimated_kwh_monthly=round(kwh, 3),
         estimated_co2e_kg_monthly=co2e,
+        co2_miles_equivalent_monthly=miles,
     )
 
 
