@@ -11,20 +11,20 @@ from datetime import date, timedelta
 
 from sqlmodel import Session, select
 
-from database import engine, create_db_and_tables
-from models import AppSetting, Plan, PlanAllowance, Provider, Subscription
+from database import create_db_and_tables, ensure_default_user, run_migrations
+from models import AppSetting, Plan, PlanAllowance, Provider, Subscription, User
 
 PROVIDERS = [
-    dict(name="ChatGPT", website="https://chat.openai.com", category="chat", logo_color="#10A37F"),
-    dict(name="Claude", website="https://claude.ai", category="chat", logo_color="#D97706"),
-    dict(name="Gemini", website="https://gemini.google.com", category="chat", logo_color="#4285F4"),
-    dict(name="Perplexity", website="https://perplexity.ai", category="chat", logo_color="#20808D"),
-    dict(name="MidJourney", website="https://midjourney.com", category="image", logo_color="#7C3AED"),
-    dict(name="Adobe Firefly", website="https://firefly.adobe.com", category="image", logo_color="#FF0000"),
-    dict(name="Suno", website="https://suno.com", category="audio", logo_color="#EC4899"),
-    dict(name="Udio", website="https://udio.com", category="audio", logo_color="#8B5CF6"),
-    dict(name="GitHub Copilot", website="https://github.com/features/copilot", category="coding", logo_color="#24292E"),
-    dict(name="Cursor", website="https://cursor.sh", category="coding", logo_color="#1A1A1A"),
+    dict(name="ChatGPT",       website="https://chat.openai.com",              category="chat",   logo_color="#10A37F"),
+    dict(name="Claude",        website="https://claude.ai",                     category="chat",   logo_color="#D97706"),
+    dict(name="Gemini",        website="https://gemini.google.com",             category="chat",   logo_color="#4285F4"),
+    dict(name="Perplexity",    website="https://perplexity.ai",                 category="chat",   logo_color="#20808D"),
+    dict(name="MidJourney",    website="https://midjourney.com",                category="image",  logo_color="#7C3AED"),
+    dict(name="Adobe Firefly", website="https://firefly.adobe.com",             category="image",  logo_color="#FF0000"),
+    dict(name="Suno",          website="https://suno.com",                      category="audio",  logo_color="#EC4899"),
+    dict(name="Udio",          website="https://udio.com",                      category="audio",  logo_color="#8B5CF6"),
+    dict(name="GitHub Copilot",website="https://github.com/features/copilot",  category="coding", logo_color="#24292E"),
+    dict(name="Cursor",        website="https://cursor.sh",                     category="coding", logo_color="#1A1A1A"),
 ]
 
 PLANS = {
@@ -38,16 +38,16 @@ PLANS = {
              notes="Per user/month ($25/user/month billed annually = $300/yr)."),
     ],
     "Claude": [
-        dict(name="Free",          price_monthly=0.0,   price_annual_total=None,   is_free=True),
-        dict(name="Pro",           price_monthly=20.0,  price_annual_total=200.0,  is_free=False,
+        dict(name="Free",          price_monthly=0.0,   price_annual_total=None,    is_free=True),
+        dict(name="Pro",           price_monthly=20.0,  price_annual_total=200.0,   is_free=False,
              notes="Priority access, extended context, Projects. $200/year if billed annually."),
-        dict(name="Max 5x",        price_monthly=100.0, price_annual_total=None,   is_free=False,
+        dict(name="Max 5x",        price_monthly=100.0, price_annual_total=None,    is_free=False,
              notes="5× the usage limits of Pro. No annual option published."),
-        dict(name="Max 20x",       price_monthly=200.0, price_annual_total=None,   is_free=False,
+        dict(name="Max 20x",       price_monthly=200.0, price_annual_total=None,    is_free=False,
              notes="20× the usage limits of Pro. No annual option published."),
-        dict(name="Team Standard", price_monthly=25.0,  price_annual_total=240.0,  is_free=False,
+        dict(name="Team Standard", price_monthly=25.0,  price_annual_total=240.0,   is_free=False,
              notes="Per member/month ($20/member/month billed annually = $240/yr)."),
-        dict(name="Team Premium",  price_monthly=125.0, price_annual_total=1200.0, is_free=False,
+        dict(name="Team Premium",  price_monthly=125.0, price_annual_total=1200.0,  is_free=False,
              notes="Per member/month ($100/member/month billed annually = $1,200/yr)."),
     ],
     "Gemini": [
@@ -165,8 +165,10 @@ SAMPLE_SUBSCRIPTIONS = [
 
 def seed(with_subs: bool = False, reset: bool = False):
     create_db_and_tables()
+    run_migrations()
+    ensure_default_user()
 
-    with Session(engine) as session:
+    with Session(__import__("database").engine) as session:
         if reset:
             for model in [Subscription, PlanAllowance, Plan, Provider, AppSetting]:
                 rows = session.exec(select(model)).all()
@@ -180,7 +182,8 @@ def seed(with_subs: bool = False, reset: bool = False):
         if existing and not reset:
             print("Providers already seeded. Use --reset to re-seed.")
             if with_subs:
-                _seed_subscriptions(session)
+                default_user = session.exec(select(User).where(User.is_active == True)).first()  # noqa: E712
+                _seed_subscriptions(session, user_id=default_user.id if default_user else 1)
             return
 
         # Seed providers
@@ -206,16 +209,20 @@ def seed(with_subs: bool = False, reset: bool = False):
         # Seed plan allowances
         allowance_count = _seed_allowances(session, plan_records)
 
-        # Seed default settings
+        # Seed default settings (skip keys that already exist)
         for key, value in DEFAULT_SETTINGS.items():
-            s = AppSetting(key=key, value=value)
-            session.add(s)
+            existing_setting = session.exec(
+                select(AppSetting).where(AppSetting.key == key)
+            ).first()
+            if not existing_setting:
+                session.add(AppSetting(key=key, value=value))
 
         session.commit()
         print(f"Seeded {len(provider_records)} providers, {len(plan_records)} plans, {allowance_count} allowances.")
 
         if with_subs:
-            _seed_subscriptions(session)
+            default_user = session.exec(select(User).where(User.is_active == True)).first()  # noqa: E712
+            _seed_subscriptions(session, user_id=default_user.id if default_user else 1)
 
 
 # (provider_name, plan_name) -> list of allowance dicts
@@ -298,10 +305,12 @@ def _seed_allowances(session: Session, plan_records: dict) -> int:
     return count
 
 
-def _seed_subscriptions(session: Session):
-    existing = session.exec(select(Subscription)).first()
+def _seed_subscriptions(session: Session, user_id: int = 1):
+    existing = session.exec(
+        select(Subscription).where(Subscription.user_id == user_id)
+    ).first()
     if existing:
-        print("Subscriptions already exist — skipping sample subs.")
+        print(f"Subscriptions already exist for user_id={user_id} — skipping sample subs.")
         return
 
     provider_by_name = {
@@ -318,6 +327,7 @@ def _seed_subscriptions(session: Session):
             continue
         plan = plan_by_key.get((prov.id, s["plan_name"]))
         sub = Subscription(
+            user_id=user_id,
             provider_id=prov.id,
             plan_id=plan.id if plan else None,
             cost=s["cost"],
@@ -331,7 +341,7 @@ def _seed_subscriptions(session: Session):
         count += 1
 
     session.commit()
-    print(f"Seeded {count} sample subscriptions.")
+    print(f"Seeded {count} sample subscriptions for user_id={user_id}.")
 
 
 if __name__ == "__main__":

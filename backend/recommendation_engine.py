@@ -6,39 +6,40 @@ Eco estimates use published approximate values for consumer AI workloads.
 """
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import NamedTuple, Optional
 
 from sqlmodel import Session, select
 
 from models import (
-    Subscription, Provider, Plan, Recommendation, AppSetting
+    AppSetting,
+    Plan,
+    Provider,
+    Recommendation,
+    Subscription,
 )
 
+logger = logging.getLogger(__name__)
+
 # ── Environmental impact constants ────────────────────────────────────────────
-# Sources: various published estimates on LLM inference energy use.
-# These are rough averages — disclosed as estimates in the UI.
 CO2E_KG_PER_KWH = 0.386  # US average grid (EPA 2023)
 
-# kWh per month by category and intensity
 ECO_ESTIMATES = {
     "chat": {
-        # ~0.003 kWh per message × N messages/month
-        "light":    0.45,   # ~150 messages
+        "light":    0.45,   # ~150 messages × 0.003 kWh
         "moderate": 1.80,   # ~600 messages
         "heavy":    5.40,   # ~1,800 messages
     },
     "image": {
-        # ~0.02 kWh per image × N images/month
-        "light":    0.60,   # ~30 images
+        "light":    0.60,   # ~30 images × 0.02 kWh
         "moderate": 3.00,   # ~150 images
         "heavy":   10.00,   # ~500 images
     },
     "audio": {
-        # ~0.005 kWh per minute × N minutes/month
-        "light":    0.15,   # ~30 min
-        "moderate": 0.60,   # ~120 min
-        "heavy":    1.50,   # ~300 min
+        "light":    0.15,   # ~30 min × 0.005 kWh
+        "moderate": 0.60,
+        "heavy":    1.50,
     },
     "video": {
         "light":    0.50,
@@ -57,11 +58,10 @@ ECO_ESTIMATES = {
     },
 }
 
-# Category overlap pairs — subscriptions in these groups compete for same use
 OVERLAP_CATEGORIES = {"chat", "coding", "writing"}
-
-# Minimum monthly savings worth an annual-switch recommendation
 MIN_ANNUAL_SAVINGS = 5.0
+
+PRIORITY_SCORE = {"low": 1, "medium": 2, "high": 3}
 
 
 class RecResult(NamedTuple):
@@ -80,17 +80,25 @@ def estimate_kwh(category: str, intensity: str) -> float:
     return cat.get(intensity, cat["moderate"])
 
 
+def get_monthly_equivalent(sub: Subscription) -> float:
+    """Return the effective monthly cost regardless of billing interval."""
+    if sub.billing_interval == "annual":
+        return sub.cost / 12
+    return sub.cost
+
+
 def get_setting(session: Session, key: str, default: str = "") -> str:
     row = session.exec(select(AppSetting).where(AppSetting.key == key)).first()
     return row.value if row else default
 
 
-def run_engine(session: Session) -> list[RecResult]:
+def run_engine(session: Session, user_id: Optional[int] = None) -> list[RecResult]:
     results: list[RecResult] = []
 
-    subs = session.exec(
-        select(Subscription).where(Subscription.status == "active")
-    ).all()
+    q = select(Subscription).where(Subscription.status == "active")
+    if user_id is not None:
+        q = q.where(Subscription.user_id == user_id)
+    subs = session.exec(q).all()
 
     if not subs:
         return results
@@ -110,7 +118,8 @@ def run_engine(session: Session) -> list[RecResult]:
                 plan_map[sub.plan_id] = pl
 
     eco_priority = get_setting(session, "eco_priority", "medium")
-    optimization_style = get_setting(session, "optimization_style", "balanced")
+
+    logger.info(f"Running rec engine for user_id={user_id}: {len(subs)} active subs")
 
     # ── Rule 1: Annual billing savings ──────────────────────────────────────
     for sub in subs:
@@ -132,7 +141,7 @@ def run_engine(session: Session) -> list[RecResult]:
                             f"The annual plan works out to ${annual_equiv_monthly:.2f}/month "
                             f"(${plan.price_annual_total:.0f}/year)."
                         ),
-                        potential_savings_annual=savings_annual,
+                        potential_savings_annual=round(savings_annual, 2),
                         estimated_kwh_change=None,
                         estimated_co2e_change=None,
                         priority="high" if savings_annual >= 20 else "medium",
@@ -141,7 +150,8 @@ def run_engine(session: Session) -> list[RecResult]:
     # ── Rule 2: Cancel low-perceived-value subscriptions ────────────────────
     for sub in subs:
         if sub.perceived_value == "low":
-            annual_cost = sub.cost * 12 if sub.billing_interval == "monthly" else sub.cost
+            monthly = get_monthly_equivalent(sub)
+            annual_cost = round(monthly * 12, 2)
             provider = provider_map.get(sub.provider_id)
             name = provider.name if provider else "this service"
             results.append(RecResult(
@@ -163,10 +173,8 @@ def run_engine(session: Session) -> list[RecResult]:
         if sub.usage_estimate != "light" or sub.cost == 0:
             continue
         if sub.plan_id and sub.plan_id in plan_map:
-            plan = plan_map[sub.plan_id]
-            if plan.is_free:
-                continue  # already on free
-        # Check if provider has a free plan
+            if plan_map[sub.plan_id].is_free:
+                continue
         provider = provider_map.get(sub.provider_id)
         if not provider:
             continue
@@ -177,7 +185,8 @@ def run_engine(session: Session) -> list[RecResult]:
             )
         ).first()
         if free_plan:
-            annual_cost = sub.cost * 12 if sub.billing_interval == "monthly" else sub.cost
+            monthly = get_monthly_equivalent(sub)
+            annual_cost = round(monthly * 12, 2)
             results.append(RecResult(
                 subscription_id=sub.id,
                 rec_type="downgrade",
@@ -193,35 +202,41 @@ def run_engine(session: Session) -> list[RecResult]:
                 priority="medium",
             ))
 
-    # ── Rule 4: Overlap detection ────────────────────────────────────────────
+    # ── Rule 4: Overlap detection — ONE rec per overlapping category ─────────
     overlap_groups: dict[str, list[Subscription]] = {}
     for sub in subs:
         provider = provider_map.get(sub.provider_id)
-        if not provider:
-            continue
-        if provider.category in OVERLAP_CATEGORIES:
+        if provider and provider.category in OVERLAP_CATEGORIES:
             overlap_groups.setdefault(provider.category, []).append(sub)
 
     for category, group in overlap_groups.items():
         if len(group) < 2:
             continue
-        names = [provider_map[s.provider_id].name for s in group if s.provider_id in provider_map]
-        cheapest_cost = min(s.cost for s in group)
-        potential_savings = cheapest_cost * 12  # rough: cancel the cheapest duplicate
-        for sub in group:
-            results.append(RecResult(
-                subscription_id=sub.id,
-                rec_type="overlap",
-                reason=f"You have {len(group)} overlapping {category} AI subscriptions",
-                detail=(
-                    f"{', '.join(names)} all serve similar purposes. "
-                    "Consider which one you rely on most and cancelling the others."
-                ),
-                potential_savings_annual=potential_savings,
-                estimated_kwh_change=None,
-                estimated_co2e_change=None,
-                priority="medium",
-            ))
+        names = [
+            provider_map[s.provider_id].name
+            for s in group
+            if s.provider_id in provider_map
+        ]
+        # Anchor the rec to the most expensive subscription (by monthly cost)
+        anchor = max(group, key=lambda s: get_monthly_equivalent(s))
+        # Savings estimate: dropping the cheapest subscription in the group
+        cheapest_monthly = min(get_monthly_equivalent(s) for s in group)
+        savings_annual = round(cheapest_monthly * 12, 2)
+        total_monthly = round(sum(get_monthly_equivalent(s) for s in group), 2)
+        results.append(RecResult(
+            subscription_id=anchor.id,
+            rec_type="overlap",
+            reason=f"You have {len(group)} overlapping {category} AI subscriptions",
+            detail=(
+                f"{', '.join(names)} all serve similar {category} purposes. "
+                f"Together they cost ~${total_monthly:.2f}/month. "
+                "Consider which one you rely on most and cancelling the others."
+            ),
+            potential_savings_annual=savings_annual,
+            estimated_kwh_change=None,
+            estimated_co2e_change=None,
+            priority="medium",
+        ))
 
     # ── Rule 5: Eco — heavy usage, high eco priority ─────────────────────────
     if eco_priority == "high":
@@ -269,22 +284,24 @@ def run_engine(session: Session) -> list[RecResult]:
                 priority="low",
             ))
 
+    logger.info(f"Engine produced {len(results)} recommendations for user_id={user_id}")
     return results
 
 
-def save_recommendations(session: Session) -> int:
-    """Delete existing non-dismissed recs, run engine, persist results."""
-    # Remove old non-dismissed recommendations
-    old = session.exec(
-        select(Recommendation).where(Recommendation.dismissed == False)  # noqa: E712
-    ).all()
+def save_recommendations(session: Session, user_id: Optional[int] = None) -> int:
+    """Delete existing non-dismissed recs for this user, run engine, persist results."""
+    q = select(Recommendation).where(Recommendation.dismissed == False)  # noqa: E712
+    if user_id is not None:
+        q = q.where(Recommendation.user_id == user_id)
+    old = session.exec(q).all()
     for rec in old:
         session.delete(rec)
     session.commit()
 
-    results = run_engine(session)
+    results = run_engine(session, user_id=user_id)
     for r in results:
         rec = Recommendation(
+            user_id=user_id,
             subscription_id=r.subscription_id,
             rec_type=r.rec_type,
             reason=r.reason,
@@ -293,6 +310,7 @@ def save_recommendations(session: Session) -> int:
             estimated_kwh_change=r.estimated_kwh_change,
             estimated_co2e_change=r.estimated_co2e_change,
             priority=r.priority,
+            priority_score=PRIORITY_SCORE.get(r.priority, 2),
         )
         session.add(rec)
     session.commit()

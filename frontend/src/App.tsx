@@ -1,9 +1,9 @@
-import { useEffect } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { getOnboardingStatus } from './api/client'
+import { getOnboardingStatus, fetchUsers } from './api/client'
 import Layout from './components/Layout'
 import Onboarding from './pages/Onboarding'
+import UserSelect from './pages/UserSelect'
 import Dashboard from './pages/Dashboard'
 import Services from './pages/Services'
 import Usage from './pages/Usage'
@@ -11,12 +11,17 @@ import Recommendations from './pages/Recommendations'
 import Settings from './pages/Settings'
 
 function AppRoutes() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading: statusLoading } = useQuery({
     queryKey: ['onboarding-status'],
     queryFn: getOnboardingStatus,
   })
 
-  if (isLoading) {
+  const { data: allUsers = [], isLoading: usersLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+  })
+
+  if (statusLoading || usersLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cream-100">
         <div className="text-slate-400 text-sm">Loading…</div>
@@ -25,9 +30,20 @@ function AppRoutes() {
   }
 
   const complete = data?.complete ?? false
+  const onboardedCount = allUsers.filter((u) => u.onboarding_complete).length
 
   return (
     <Routes>
+      <Route
+        path="/"
+        element={
+          onboardedCount >= 2
+            ? <UserSelect />
+            : complete
+              ? <Navigate to="/dashboard" replace />
+              : <Navigate to="/onboarding" replace />
+        }
+      />
       <Route
         path="/onboarding"
         element={complete ? <Navigate to="/dashboard" replace /> : <Onboarding />}
@@ -56,7 +72,7 @@ function AppRoutes() {
       </Route>
       <Route
         path="*"
-        element={<Navigate to={complete ? '/dashboard' : '/onboarding'} replace />}
+        element={<Navigate to="/" replace />}
       />
     </Routes>
   )

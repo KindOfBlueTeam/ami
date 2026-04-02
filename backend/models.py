@@ -1,6 +1,93 @@
+from __future__ import annotations
+
+from enum import Enum
 from typing import Optional
 from datetime import date, datetime
+
 from sqlmodel import Field, SQLModel
+
+
+# ── Enums ──────────────────────────────────────────────────────────────────────
+
+class StatusEnum(str, Enum):
+    active = "active"
+    paused = "paused"
+    cancelled = "cancelled"
+
+
+class BillingIntervalEnum(str, Enum):
+    monthly = "monthly"
+    annual = "annual"
+
+
+class UsageEstimateEnum(str, Enum):
+    light = "light"
+    moderate = "moderate"
+    heavy = "heavy"
+
+
+class PerceivedValueEnum(str, Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
+class RecTypeEnum(str, Enum):
+    upgrade = "upgrade"
+    downgrade = "downgrade"
+    keep = "keep"
+    annual = "annual"
+    cancel = "cancel"
+    overlap = "overlap"
+    eco = "eco"
+
+
+class PriorityEnum(str, Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
+class EcoPriorityEnum(str, Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
+class OptimizationStyleEnum(str, Enum):
+    cost = "cost"
+    value = "value"
+    eco = "eco"
+    balanced = "balanced"
+
+
+class EcoTradeoffEnum(str, Enum):
+    yes = "yes"
+    maybe = "maybe"
+    no = "no"
+
+
+# ── Users ───────────────────────────────────────────────────────────────────────
+
+class User(SQLModel, table=True):
+    __tablename__ = "users"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    is_active: bool = False
+    onboarding_complete: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserCreate(SQLModel):
+    name: str
+
+
+class UserRead(SQLModel):
+    id: int
+    name: str
+    is_active: bool
+    onboarding_complete: bool
+    created_at: datetime
 
 
 # ── Providers ──────────────────────────────────────────────────────────────────
@@ -10,8 +97,8 @@ class Provider(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
     website: Optional[str] = None
-    category: str  # chat, image, audio, video, coding, writing
-    logo_color: str = "#6B7280"  # fallback hex for avatar display
+    category: str  # chat | image | audio | video | coding | writing
+    logo_color: str = "#6B7280"
     is_consumer: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -32,8 +119,8 @@ class Plan(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     provider_id: int = Field(foreign_key="providers.id")
     name: str
-    price_monthly: float  # monthly price (use 0 for free)
-    price_annual_total: Optional[float] = None  # total annual price if billed yearly
+    price_monthly: float
+    price_annual_total: Optional[float] = None
     is_free: bool = False
     notes: Optional[str] = None
 
@@ -54,10 +141,10 @@ class PlanAllowance(SQLModel, table=True):
     __tablename__ = "plan_allowances"
     id: Optional[int] = Field(default=None, primary_key=True)
     plan_id: int = Field(foreign_key="plans.id")
-    allowance_type: str   # messages | images | minutes | tokens | storage | requests | credits
-    amount: Optional[float] = None   # None = unlimited or unknown
-    unit: str             # messages, images, minutes, GB, credits, etc.
-    is_approximate: bool = True      # consumer plans rarely publish exact quotas
+    allowance_type: str
+    amount: Optional[float] = None
+    unit: str
+    is_approximate: bool = True
     notes: Optional[str] = None
 
 
@@ -85,13 +172,14 @@ class PlanAllowanceRead(SQLModel):
 class Subscription(SQLModel, table=True):
     __tablename__ = "subscriptions"
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="users.id")
     provider_id: int = Field(foreign_key="providers.id")
     plan_id: Optional[int] = Field(default=None, foreign_key="plans.id")
-    custom_plan_name: Optional[str] = None  # if plan not in DB
-    cost: float  # user-confirmed actual price per billing cycle
-    catalog_price_usd: Optional[float] = None  # default price from Ami's catalog at setup time
-    price_differs_from_catalog: bool = False   # True if user changed the pre-filled price
-    billing_interval: str  # monthly | annual
+    custom_plan_name: Optional[str] = None
+    cost: float
+    catalog_price_usd: Optional[float] = None
+    price_differs_from_catalog: bool = False
+    billing_interval: str = "monthly"  # monthly | annual
     renewal_date: date
     status: str = "active"  # active | paused | cancelled
     usage_estimate: str = "moderate"  # light | moderate | heavy
@@ -109,11 +197,11 @@ class SubscriptionCreate(SQLModel):
     cost: float
     catalog_price_usd: Optional[float] = None
     price_differs_from_catalog: bool = False
-    billing_interval: str = "monthly"
+    billing_interval: BillingIntervalEnum = BillingIntervalEnum.monthly
     renewal_date: date
-    status: str = "active"
-    usage_estimate: str = "moderate"
-    perceived_value: str = "medium"
+    status: StatusEnum = StatusEnum.active
+    usage_estimate: UsageEstimateEnum = UsageEstimateEnum.moderate
+    perceived_value: PerceivedValueEnum = PerceivedValueEnum.medium
     primary_use_case: Optional[str] = None
     notes: Optional[str] = None
 
@@ -124,17 +212,18 @@ class SubscriptionUpdate(SQLModel):
     cost: Optional[float] = None
     catalog_price_usd: Optional[float] = None
     price_differs_from_catalog: Optional[bool] = None
-    billing_interval: Optional[str] = None
+    billing_interval: Optional[BillingIntervalEnum] = None
     renewal_date: Optional[date] = None
-    status: Optional[str] = None
-    usage_estimate: Optional[str] = None
-    perceived_value: Optional[str] = None
+    status: Optional[StatusEnum] = None
+    usage_estimate: Optional[UsageEstimateEnum] = None
+    perceived_value: Optional[PerceivedValueEnum] = None
     primary_use_case: Optional[str] = None
     notes: Optional[str] = None
 
 
 class SubscriptionRead(SQLModel):
     id: int
+    user_id: Optional[int]
     provider_id: int
     plan_id: Optional[int]
     custom_plan_name: Optional[str]
@@ -197,7 +286,7 @@ class UsageEntry(SQLModel, table=True):
     entry_date: date = Field(default_factory=date.today)
     activity_type: str  # message | image | audio_min | video_min | session
     quantity: float
-    unit: str  # messages, images, minutes, sessions
+    unit: str
     notes: Optional[str] = None
     estimated_kwh: Optional[float] = None
     estimated_co2e_kg: Optional[float] = None
@@ -231,6 +320,7 @@ class UsageEntryRead(SQLModel):
 class Recommendation(SQLModel, table=True):
     __tablename__ = "recommendations"
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="users.id")
     subscription_id: int = Field(foreign_key="subscriptions.id")
     rec_type: str  # upgrade | downgrade | keep | annual | cancel | overlap | eco
     reason: str
@@ -239,12 +329,14 @@ class Recommendation(SQLModel, table=True):
     estimated_kwh_change: Optional[float] = None
     estimated_co2e_change: Optional[float] = None
     priority: str = "medium"  # low | medium | high
+    priority_score: int = 2   # 1=low, 2=medium, 3=high — used for ORDER BY DESC
     dismissed: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class RecommendationRead(SQLModel):
     id: int
+    user_id: Optional[int]
     subscription_id: int
     rec_type: str
     reason: str
@@ -253,6 +345,7 @@ class RecommendationRead(SQLModel):
     estimated_kwh_change: Optional[float]
     estimated_co2e_change: Optional[float]
     priority: str
+    priority_score: int
     dismissed: bool
     created_at: datetime
     provider: Optional[ProviderRead] = None
@@ -267,6 +360,22 @@ class AppSetting(SQLModel, table=True):
     value: str
 
 
+class SettingsUpdate(SQLModel):
+    """Typed schema for writable settings keys."""
+    eco_priority: Optional[EcoPriorityEnum] = None
+    optimization_style: Optional[OptimizationStyleEnum] = None
+    eco_tradeoff: Optional[EcoTradeoffEnum] = None
+    carbon_intensity_kwh: Optional[str] = None  # stored as string for flexibility
+
+
+class SettingsRead(SQLModel):
+    eco_priority: str = "medium"
+    optimization_style: str = "balanced"
+    eco_tradeoff: str = "maybe"
+    carbon_intensity_kwh: str = "0.386"
+    currency: str = "USD"
+
+
 # ── Onboarding ─────────────────────────────────────────────────────────────────
 
 class OnboardingSubscriptionIn(SQLModel):
@@ -276,16 +385,16 @@ class OnboardingSubscriptionIn(SQLModel):
     cost: float
     catalog_price_usd: Optional[float] = None
     price_differs_from_catalog: bool = False
-    billing_interval: str = "monthly"
+    billing_interval: BillingIntervalEnum = BillingIntervalEnum.monthly
     renewal_date: date
-    usage_estimate: str = "moderate"
-    perceived_value: str = "medium"
+    usage_estimate: UsageEstimateEnum = UsageEstimateEnum.moderate
+    perceived_value: PerceivedValueEnum = PerceivedValueEnum.medium
     primary_use_case: Optional[str] = None
     notes: Optional[str] = None
 
 
 class OnboardingComplete(SQLModel):
     subscriptions: list[OnboardingSubscriptionIn]
-    eco_priority: str = "medium"  # low | medium | high
-    optimization_style: str = "balanced"  # cost | value | eco | balanced
-    eco_tradeoff: str = "maybe"  # yes | maybe | no
+    eco_priority: EcoPriorityEnum = EcoPriorityEnum.medium
+    optimization_style: OptimizationStyleEnum = OptimizationStyleEnum.balanced
+    eco_tradeoff: EcoTradeoffEnum = EcoTradeoffEnum.maybe

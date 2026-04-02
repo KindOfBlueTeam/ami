@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO, differenceInDays } from 'date-fns'
@@ -6,10 +6,13 @@ import {
   fetchSubscriptions,
   fetchRecommendations,
   generateRecommendations,
+  dismissRecommendation,
+  fetchUsers,
+  getActiveUser,
+  activateUser,
 } from '../api/client'
 import StatCard from '../components/StatCard'
 import RecommendationCard from '../components/RecommendationCard'
-import { dismissRecommendation } from '../api/client'
 import type { Subscription } from '../types'
 
 function monthlyCost(sub: Subscription) {
@@ -18,6 +21,8 @@ function monthlyCost(sub: Subscription) {
 
 export default function Dashboard() {
   const qc = useQueryClient()
+  const [showSwitchMenu, setShowSwitchMenu] = useState(false)
+  const switchMenuRef = useRef<HTMLDivElement>(null)
 
   const { data: subs = [] } = useQuery({
     queryKey: ['subscriptions'],
@@ -29,15 +34,49 @@ export default function Dashboard() {
     queryFn: () => fetchRecommendations(false),
   })
 
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+  })
+
+  const { data: activeUser } = useQuery({
+    queryKey: ['active-user'],
+    queryFn: getActiveUser,
+  })
+
   const generateMutation = useMutation({
     mutationFn: generateRecommendations,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['recommendations'] }),
+  })
+
+  const switchMutation = useMutation({
+    mutationFn: activateUser,
+    onSuccess: () => {
+      setShowSwitchMenu(false)
+      qc.invalidateQueries({ queryKey: ['active-user'] })
+      qc.invalidateQueries({ queryKey: ['subscriptions'] })
+      qc.invalidateQueries({ queryKey: ['recommendations'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['onboarding-status'] })
+    },
   })
 
   const dismissMutation = useMutation({
     mutationFn: dismissRecommendation,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['recommendations'] }),
   })
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!showSwitchMenu) return
+    function handleClick(e: MouseEvent) {
+      if (switchMenuRef.current && !switchMenuRef.current.contains(e.target as Node)) {
+        setShowSwitchMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showSwitchMenu])
 
   const active = useMemo(() => subs.filter((s) => s.status === 'active'), [subs])
 
@@ -74,20 +113,64 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">Dashboard</h1>
           <p className="text-sm text-slate-400 mt-0.5">
             {active.length} active subscription{active.length !== 1 ? 's' : ''}
+            {activeUser && allUsers.length > 1 && (
+              <span className="ml-1.5 text-slate-300">· {activeUser.name}</span>
+            )}
           </p>
         </div>
-        <button
-          className="btn-secondary text-xs"
-          onClick={() => generateMutation.mutate()}
-          disabled={generateMutation.isPending}
-        >
-          {generateMutation.isPending ? 'Refreshing…' : '↻ Refresh insights'}
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Switch User — only shown when multiple users exist */}
+          {allUsers.length > 1 && (
+            <div className="relative" ref={switchMenuRef}>
+              <button
+                className="btn-secondary text-xs"
+                onClick={() => setShowSwitchMenu((v) => !v)}
+                disabled={switchMutation.isPending}
+              >
+                {switchMutation.isPending ? 'Switching…' : 'Switch user ▾'}
+              </button>
+              {showSwitchMenu && (
+                <div className="absolute right-0 top-full mt-1.5 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-20 min-w-[160px]">
+                  {allUsers.map((u) => (
+                    <button
+                      key={u.id}
+                      className={[
+                        'w-full text-left px-3.5 py-2 text-sm transition-colors',
+                        u.is_active
+                          ? 'text-sage-700 font-medium bg-sage-50/60 cursor-default'
+                          : 'text-slate-700 hover:bg-slate-50 cursor-pointer',
+                      ].join(' ')}
+                      onClick={() => {
+                        if (!u.is_active) switchMutation.mutate(u.id)
+                      }}
+                    >
+                      <span className="flex items-center gap-2">
+                        {u.name}
+                        {u.is_active && (
+                          <span className="text-xs text-sage-500 font-normal">✓</span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            className="btn-secondary text-xs"
+            onClick={() => generateMutation.mutate()}
+            disabled={generateMutation.isPending}
+          >
+            {generateMutation.isPending ? 'Refreshing…' : '↻ Refresh insights'}
+          </button>
+        </div>
       </div>
 
       {/* Stat cards */}

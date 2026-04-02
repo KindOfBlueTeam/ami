@@ -1,6 +1,7 @@
 import axios from 'axios'
 import type {
   AppSettings,
+  AppSettingsUpdate,
   OnboardingComplete,
   Plan,
   Provider,
@@ -8,6 +9,8 @@ import type {
   Subscription,
   SubscriptionCreate,
   SubscriptionUpdate,
+  User,
+  UserCreate,
   UsageEntry,
   UsagePeriod,
 } from '../types'
@@ -16,6 +19,28 @@ const api = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
 })
+
+// ── Users ───────────────────────────────────────────────────────────────────────
+export const fetchUsers = (): Promise<User[]> =>
+  api.get('/users').then((r) => r.data)
+
+export const getActiveUser = (): Promise<User> =>
+  api.get('/users/active').then((r) => r.data)
+
+export const createUser = (data: UserCreate): Promise<User> =>
+  api.post('/users', data).then((r) => r.data)
+
+export const activateUser = (id: number): Promise<User> =>
+  api.post(`/users/${id}/activate`).then((r) => r.data)
+
+export const renameUser = (id: number, data: UserCreate): Promise<User> =>
+  api.put(`/users/${id}`, data).then((r) => r.data)
+
+export const deleteUser = (id: number): Promise<void> =>
+  api.delete(`/users/${id}`)
+
+export const deleteCurrentUser = (): Promise<{ deleted: boolean; reset?: boolean; new_active_user_id: number }> =>
+  api.post('/users/me/delete').then((r) => r.data)
 
 // ── Providers ──────────────────────────────────────────────────────────────────
 export const fetchProviders = (): Promise<Provider[]> =>
@@ -76,12 +101,15 @@ export const dismissRecommendation = (id: number): Promise<Recommendation> =>
 export const fetchSettings = (): Promise<AppSettings> =>
   api.get('/settings').then((r) => r.data)
 
-export const updateSettings = (data: Partial<AppSettings>): Promise<AppSettings> =>
+export const updateSettings = (data: AppSettingsUpdate): Promise<AppSettings> =>
   api.put('/settings', data).then((r) => r.data)
 
 // ── Onboarding ─────────────────────────────────────────────────────────────────
-export const getOnboardingStatus = (): Promise<{ complete: boolean }> =>
+export const getOnboardingStatus = (): Promise<{ complete: boolean; user_id: number }> =>
   api.get('/onboarding/status').then((r) => r.data)
 
 export const completeOnboarding = (data: OnboardingComplete): Promise<Subscription[]> =>
   api.post('/onboarding/complete', data).then((r) => r.data)
+
+export const resetOnboarding = (): Promise<{ reset: boolean; subscriptions_deleted: number }> =>
+  api.post('/onboarding/reset').then((r) => r.data)

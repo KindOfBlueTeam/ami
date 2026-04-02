@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+from collections import Counter
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from sqlmodel import Session, select, SQLModel
+from sqlmodel import Session, SQLModel, select
 
-from database import get_session
-from models import Provider, Recommendation, Subscription
-from recommendation_engine import estimate_kwh, CO2E_KG_PER_KWH
+from database import get_active_user_id, get_session
+from models import Plan, Provider, Recommendation, Subscription
+from recommendation_engine import CO2E_KG_PER_KWH, estimate_kwh
 
 router = APIRouter(tags=["dashboard"])
 
@@ -45,10 +46,13 @@ class DashboardSummary(SQLModel):
 
 @router.get("/dashboard", response_model=DashboardSummary)
 def get_dashboard(session: Session = Depends(get_session)):
-    from models import Plan
+    user_id = get_active_user_id(session)
 
     subs = session.exec(
-        select(Subscription).where(Subscription.status == "active")
+        select(Subscription).where(
+            Subscription.user_id == user_id,
+            Subscription.status == "active",
+        )
     ).all()
 
     today = date.today()
@@ -62,8 +66,7 @@ def get_dashboard(session: Session = Depends(get_session)):
         category = provider.category if provider else "chat"
         kwh = estimate_kwh(category, sub.usage_estimate)
         co2e = round(kwh * CO2E_KG_PER_KWH, 4)
-        renewal = sub.renewal_date
-        days = (renewal - today).days
+        days = (sub.renewal_date - today).days
 
         summaries.append(SubscriptionSummary(
             id=sub.id,
@@ -73,7 +76,7 @@ def get_dashboard(session: Session = Depends(get_session)):
             plan_name=plan.name if plan else sub.custom_plan_name,
             monthly_cost=round(monthly_cost, 2),
             billing_interval=sub.billing_interval,
-            renewal_date=renewal,
+            renewal_date=sub.renewal_date,
             days_until_renewal=days,
             usage_estimate=sub.usage_estimate,
             perceived_value=sub.perceived_value,
@@ -81,26 +84,24 @@ def get_dashboard(session: Session = Depends(get_session)):
             estimated_co2e_kg_monthly=co2e,
         ))
 
-    # Totals
     total_monthly = round(sum(s.monthly_cost for s in summaries), 2)
     total_kwh = round(sum(s.estimated_kwh_monthly for s in summaries), 3)
     total_co2e = round(sum(s.estimated_co2e_kg_monthly for s in summaries), 4)
 
-    # Next renewal
     upcoming = sorted(
         [s for s in summaries if s.days_until_renewal >= 0],
         key=lambda s: s.days_until_renewal,
     )
     next_renewal = upcoming[0] if upcoming else None
 
-    # Overlap detection (categories with 2+ subscriptions)
-    from collections import Counter
     category_counts = Counter(s.provider_category for s in summaries)
     overlap_categories = [cat for cat, count in category_counts.items() if count > 1]
 
-    # Open recommendations
     open_recs = session.exec(
-        select(Recommendation).where(Recommendation.dismissed == False)  # noqa: E712
+        select(Recommendation).where(
+            Recommendation.user_id == user_id,
+            Recommendation.dismissed == False,  # noqa: E712
+        )
     ).all()
 
     return DashboardSummary(

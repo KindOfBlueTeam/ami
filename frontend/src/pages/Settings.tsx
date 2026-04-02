@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchSettings, updateSettings } from '../api/client'
-import type { AppSettings } from '../types'
+import {
+  fetchSettings,
+  updateSettings,
+  getActiveUser,
+  fetchUsers,
+  createUser,
+  activateUser,
+  renameUser,
+  deleteUser,
+  deleteCurrentUser,
+} from '../api/client'
+import type { AppSettings, AppSettingsUpdate } from '../types'
 
 function Row({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
   return (
@@ -44,6 +55,7 @@ function ChipGroup<T extends string>({
 }
 
 export default function Settings() {
+  const navigate = useNavigate()
   const qc = useQueryClient()
 
   const { data: settings, isLoading } = useQuery({
@@ -51,8 +63,32 @@ export default function Settings() {
     queryFn: fetchSettings,
   })
 
-  const [local, setLocal] = useState<AppSettings>({})
+  const { data: activeUser } = useQuery({
+    queryKey: ['active-user'],
+    queryFn: getActiveUser,
+  })
+
+  const { data: allUsers } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+  })
+
+  const [local, setLocal] = useState<AppSettingsUpdate>({})
   const [saved, setSaved] = useState(false)
+
+  // Add new user state
+  const [addingUser, setAddingUser] = useState(false)
+  const [newUserName, setNewUserName] = useState('')
+
+  // Rename state
+  const [editingUserId, setEditingUserId] = useState<number | null>(null)
+  const [editName, setEditName] = useState('')
+
+  // Delete confirm state (Account card)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // Delete user confirm state (Manage Users section)
+  const [deleteConfirmUserId, setDeleteConfirmUserId] = useState<number | null>(null)
 
   useEffect(() => {
     if (settings) setLocal(settings)
@@ -67,12 +103,76 @@ export default function Settings() {
     },
   })
 
-  const handleSave = () => {
-    updateMutation.mutate(local)
-  }
+  const addUserMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const user = await createUser({ name })
+      await activateUser(user.id)
+      return user
+    },
+    onSuccess: (user) => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['active-user'] })
+      qc.setQueryData(['onboarding-status'], { complete: false })
+      qc.invalidateQueries({ queryKey: ['subscriptions'] })
+      qc.invalidateQueries({ queryKey: ['recommendations'] })
+      sessionStorage.setItem('ami-new-user-name', user.name)
+      navigate('/onboarding')
+    },
+  })
+
+  const switchMutation = useMutation({
+    mutationFn: activateUser,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['active-user'] })
+      qc.invalidateQueries({ queryKey: ['subscriptions'] })
+      qc.invalidateQueries({ queryKey: ['recommendations'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['onboarding-status'] })
+    },
+  })
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => renameUser(id, { name }),
+    onSuccess: () => {
+      setEditingUserId(null)
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['active-user'] })
+    },
+  })
+
+  const deleteUserMutation = useMutation({
+    mutationFn: (id: number) => deleteUser(id),
+    onSuccess: () => {
+      setDeleteConfirmUserId(null)
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['active-user'] })
+    },
+  })
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: deleteCurrentUser,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['active-user'] })
+      qc.invalidateQueries({ queryKey: ['onboarding-status'] })
+      qc.invalidateQueries({ queryKey: ['subscriptions'] })
+      qc.invalidateQueries({ queryKey: ['recommendations'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      navigate('/onboarding')
+    },
+  })
+
+  const handleSave = () => updateMutation.mutate(local)
 
   const set = (key: keyof AppSettings) => (v: string) =>
-    setLocal((prev) => ({ ...prev, [key]: v }))
+    setLocal((prev) => ({ ...prev, [key]: v as any }))
+
+  const handleAddUser = () => {
+    const name = newUserName.trim()
+    if (!name) return
+    addUserMutation.mutate(name)
+  }
 
   if (isLoading) return <p className="text-slate-400 text-sm">Loading…</p>
 
@@ -161,6 +261,213 @@ export default function Settings() {
         {saved && <span className="text-xs text-sage-600">Saved ✓</span>}
       </div>
 
+      {/* Account */}
+      <div className="card p-5 space-y-4">
+        <div>
+          <h2 className="text-sm font-medium text-slate-600">Account</h2>
+          {activeUser && (
+            <p className="text-xs text-slate-400 mt-0.5">
+              Active profile: <span className="font-medium text-slate-500">{activeUser.name}</span>
+              {allUsers && allUsers.length > 1 && (
+                <span className="ml-1">· {allUsers.length} profiles on this device</span>
+              )}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {/* Add New User */}
+          {!addingUser ? (
+            <button
+              className="btn-secondary self-start"
+              onClick={() => {
+                setAddingUser(true)
+                setConfirmDelete(false)
+                setNewUserName('')
+              }}
+              disabled={addUserMutation.isPending}
+            >
+              Add new user
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                className="input text-sm w-44"
+                placeholder="Name"
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddUser()
+                  if (e.key === 'Escape') setAddingUser(false)
+                }}
+                autoFocus
+              />
+              <button
+                className="btn-primary text-sm px-3 py-1.5"
+                onClick={handleAddUser}
+                disabled={!newUserName.trim() || addUserMutation.isPending}
+              >
+                {addUserMutation.isPending ? 'Creating…' : 'Create'}
+              </button>
+              <button
+                className="text-xs text-slate-400 hover:text-slate-600"
+                onClick={() => setAddingUser(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {/* Delete This Account */}
+          {!confirmDelete ? (
+            <button
+              className="self-start text-sm font-medium text-red-600 hover:text-red-700 hover:underline transition-colors"
+              onClick={() => {
+                setConfirmDelete(true)
+                setAddingUser(false)
+              }}
+            >
+              Delete this account
+            </button>
+          ) : (
+            <div className="rounded-lg border border-red-100 bg-red-50 p-4 space-y-3">
+              <p className="text-sm text-red-700 font-medium">Delete this account?</p>
+              <p className="text-xs text-red-600 leading-relaxed">
+                This will permanently delete all subscriptions, recommendations, and usage
+                data for <strong>{activeUser?.name ?? 'this account'}</strong>.
+                {allUsers && allUsers.length === 1
+                  ? ' You\'ll be taken back to onboarding to start fresh.'
+                  : ' You\'ll be switched to another profile.'}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  className="text-sm font-medium bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                  onClick={() => deleteAccountMutation.mutate()}
+                  disabled={deleteAccountMutation.isPending}
+                >
+                  {deleteAccountMutation.isPending ? 'Deleting…' : 'Yes, delete'}
+                </button>
+                <button
+                  className="text-sm text-slate-500 hover:text-slate-700 px-3 py-1.5"
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Manage Users */}
+      {allUsers && allUsers.length > 0 && (
+        <div className="card p-5 space-y-3">
+          <h2 className="text-sm font-medium text-slate-600">Manage users</h2>
+          <div className="divide-y divide-slate-50">
+            {allUsers.map((u) => (
+              <div key={u.id} className="py-3 first:pt-0 last:pb-0">
+                {deleteConfirmUserId === u.id ? (
+                  <div className="rounded-lg border border-red-100 bg-red-50 p-3 space-y-2">
+                    <p className="text-sm text-red-700 font-medium">Delete {u.name}?</p>
+                    <p className="text-xs text-red-600 leading-relaxed">
+                      This will permanently delete all subscriptions, recommendations, and usage data for <strong>{u.name}</strong>.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        className="text-sm font-medium bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                        onClick={() => deleteUserMutation.mutate(u.id)}
+                        disabled={deleteUserMutation.isPending}
+                      >
+                        {deleteUserMutation.isPending ? 'Deleting…' : 'Yes, delete'}
+                      </button>
+                      <button
+                        className="text-sm text-slate-500 hover:text-slate-700 px-3 py-1.5"
+                        onClick={() => setDeleteConfirmUserId(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : editingUserId === u.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      className="input text-sm flex-1 min-w-0"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && editName.trim()) {
+                          renameMutation.mutate({ id: u.id, name: editName.trim() })
+                        }
+                        if (e.key === 'Escape') setEditingUserId(null)
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      className="btn-primary text-xs px-2.5 py-1.5"
+                      onClick={() => {
+                        if (editName.trim()) renameMutation.mutate({ id: u.id, name: editName.trim() })
+                      }}
+                      disabled={!editName.trim() || renameMutation.isPending}
+                    >
+                      {renameMutation.isPending ? '…' : 'Save'}
+                    </button>
+                    <button
+                      className="text-xs text-slate-400 hover:text-slate-600"
+                      onClick={() => setEditingUserId(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm text-slate-700 truncate">{u.name}</span>
+                      {u.is_active && (
+                        <span className="badge-sage text-xs shrink-0">Active</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {!u.is_active && (
+                        <button
+                          className="text-xs text-slate-400 hover:text-slate-600"
+                          onClick={() => switchMutation.mutate(u.id)}
+                          disabled={switchMutation.isPending}
+                        >
+                          Switch to
+                        </button>
+                      )}
+                      <button
+                        className="text-xs text-slate-400 hover:text-slate-600"
+                        onClick={() => {
+                          setEditingUserId(u.id)
+                          setEditName(u.name)
+                          setDeleteConfirmUserId(null)
+                        }}
+                      >
+                        Rename
+                      </button>
+                      {!u.is_active && (
+                        <button
+                          className="text-xs text-red-400 hover:text-red-600"
+                          onClick={() => {
+                            setDeleteConfirmUserId(u.id)
+                            setEditingUserId(null)
+                          }}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* About */}
       <div className="card p-5 space-y-3">
         <h2 className="text-sm font-medium text-slate-600">About Ami</h2>
@@ -179,7 +486,7 @@ export default function Settings() {
             figures are rough approximations based on published research. They should be read as
             directional indicators, not precise measurements.
           </p>
-          <p>Version 0.1.0 · Local prototype</p>
+          <p>Version 0.2.0 · Local</p>
         </div>
       </div>
     </div>

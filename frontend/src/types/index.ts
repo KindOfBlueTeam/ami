@@ -1,3 +1,31 @@
+// ── Enums (mirrors backend) ────────────────────────────────────────────────────
+
+export type StatusEnum = 'active' | 'paused' | 'cancelled'
+export type BillingIntervalEnum = 'monthly' | 'annual'
+export type UsageEstimateEnum = 'light' | 'moderate' | 'heavy'
+export type PerceivedValueEnum = 'low' | 'medium' | 'high'
+export type RecTypeEnum = 'upgrade' | 'downgrade' | 'keep' | 'annual' | 'cancel' | 'overlap' | 'eco'
+export type PriorityEnum = 'low' | 'medium' | 'high'
+export type EcoPriorityEnum = 'low' | 'medium' | 'high'
+export type OptimizationStyleEnum = 'cost' | 'value' | 'eco' | 'balanced'
+export type EcoTradeoffEnum = 'yes' | 'maybe' | 'no'
+
+// ── Users ──────────────────────────────────────────────────────────────────────
+
+export interface User {
+  id: number
+  name: string
+  is_active: boolean
+  onboarding_complete: boolean
+  created_at: string
+}
+
+export interface UserCreate {
+  name: string
+}
+
+// ── Providers ──────────────────────────────────────────────────────────────────
+
 export interface Provider {
   id: number
   name: string
@@ -17,19 +45,22 @@ export interface Plan {
   notes: string | null
 }
 
+// ── Subscriptions ──────────────────────────────────────────────────────────────
+
 export interface Subscription {
   id: number
+  user_id: number | null
   provider_id: number
   plan_id: number | null
   custom_plan_name: string | null
   cost: number
   catalog_price_usd: number | null
   price_differs_from_catalog: boolean
-  billing_interval: 'monthly' | 'annual'
+  billing_interval: BillingIntervalEnum
   renewal_date: string
-  status: 'active' | 'paused' | 'cancelled'
-  usage_estimate: 'light' | 'moderate' | 'heavy'
-  perceived_value: 'low' | 'medium' | 'high'
+  status: StatusEnum
+  usage_estimate: UsageEstimateEnum
+  perceived_value: PerceivedValueEnum
   primary_use_case: string | null
   notes: string | null
   created_at: string
@@ -49,16 +80,18 @@ export interface SubscriptionCreate {
   cost: number
   catalog_price_usd?: number | null
   price_differs_from_catalog?: boolean
-  billing_interval: 'monthly' | 'annual'
+  billing_interval: BillingIntervalEnum
   renewal_date: string
-  status?: string
-  usage_estimate: 'light' | 'moderate' | 'heavy'
-  perceived_value: 'low' | 'medium' | 'high'
+  status?: StatusEnum
+  usage_estimate: UsageEstimateEnum
+  perceived_value: PerceivedValueEnum
   primary_use_case?: string | null
   notes?: string | null
 }
 
 export interface SubscriptionUpdate extends Partial<SubscriptionCreate> {}
+
+// ── Usage ──────────────────────────────────────────────────────────────────────
 
 export interface UsagePeriod {
   id: number
@@ -82,31 +115,44 @@ export interface UsageEntry {
   estimated_co2e_kg: number | null
 }
 
+// ── Recommendations ────────────────────────────────────────────────────────────
+
 export interface Recommendation {
   id: number
+  user_id: number | null
   subscription_id: number
-  rec_type: 'upgrade' | 'downgrade' | 'keep' | 'annual' | 'cancel' | 'overlap' | 'eco'
+  rec_type: RecTypeEnum
   reason: string
   detail: string | null
   potential_savings_annual: number | null
   estimated_kwh_change: number | null
   estimated_co2e_change: number | null
-  priority: 'low' | 'medium' | 'high'
+  priority: PriorityEnum
+  priority_score: number
   dismissed: boolean
   created_at: string
   provider: Provider | null
 }
 
+// ── Settings ───────────────────────────────────────────────────────────────────
+
 export interface AppSettings {
-  onboarding_complete?: string
-  currency?: string
-  eco_priority?: string
-  optimization_style?: string
-  eco_tradeoff?: string
+  eco_priority: EcoPriorityEnum
+  optimization_style: OptimizationStyleEnum
+  eco_tradeoff: EcoTradeoffEnum
+  carbon_intensity_kwh: string
+  currency: string
+}
+
+export interface AppSettingsUpdate {
+  eco_priority?: EcoPriorityEnum
+  optimization_style?: OptimizationStyleEnum
+  eco_tradeoff?: EcoTradeoffEnum
   carbon_intensity_kwh?: string
 }
 
-// Onboarding form state
+// ── Onboarding ─────────────────────────────────────────────────────────────────
+
 export interface OnboardingSubscriptionIn {
   provider_id: number
   plan_id: number | null
@@ -114,17 +160,17 @@ export interface OnboardingSubscriptionIn {
   cost: number
   catalog_price_usd: number | null
   price_differs_from_catalog: boolean
-  billing_interval: 'monthly' | 'annual'
+  billing_interval: BillingIntervalEnum
   renewal_date: string
-  usage_estimate: 'light' | 'moderate' | 'heavy'
-  perceived_value: 'low' | 'medium' | 'high'
+  usage_estimate: UsageEstimateEnum
+  perceived_value: PerceivedValueEnum
   primary_use_case: string | null
   notes: string | null
 }
 
 export interface OnboardingComplete {
   subscriptions: OnboardingSubscriptionIn[]
-  eco_priority: 'low' | 'medium' | 'high'
-  optimization_style: 'cost' | 'value' | 'eco' | 'balanced'
-  eco_tradeoff: 'yes' | 'maybe' | 'no'
+  eco_priority: EcoPriorityEnum
+  optimization_style: OptimizationStyleEnum
+  eco_tradeoff: EcoTradeoffEnum
 }

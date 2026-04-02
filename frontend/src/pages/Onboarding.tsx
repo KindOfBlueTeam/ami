@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addMonths } from 'date-fns'
@@ -7,6 +7,8 @@ import {
   fetchProviders,
   fetchPlansForProvider,
   completeOnboarding,
+  getActiveUser,
+  renameUser,
 } from '../api/client'
 import type { OnboardingComplete, OnboardingSubscriptionIn, Provider, Plan } from '../types'
 
@@ -15,6 +17,8 @@ import type { OnboardingComplete, OnboardingSubscriptionIn, Provider, Plan } fro
 type Step =
   | 'welcome'
   | 'how-it-works'
+  | 'name'
+  | 'name-greeting'
   | 'select-services'
   | 'setup-service'
   | 'profile'
@@ -425,7 +429,17 @@ export default function Onboarding() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [step, setStep] = useState<Step>('welcome')
+  const [step, setStep] = useState<Step>(() => {
+    const carried = sessionStorage.getItem('ami-new-user-name') ?? ''
+    return carried ? 'name-greeting' : 'welcome'
+  })
+  const [userName, setUserName] = useState<string>(() => {
+    return sessionStorage.getItem('ami-new-user-name') ?? ''
+  })
+
+  useEffect(() => {
+    sessionStorage.removeItem('ami-new-user-name')
+  }, [])
   const [selectedProviderIds, setSelectedProviderIds] = useState<number[]>([])
   const [currentServiceIdx, setCurrentServiceIdx] = useState(0)
   const [drafts, setDrafts] = useState<ServiceDraft[]>([])
@@ -434,6 +448,26 @@ export default function Onboarding() {
     optimization_style: 'balanced' as 'cost' | 'value' | 'eco' | 'balanced',
     eco_tradeoff: 'maybe' as 'yes' | 'maybe' | 'no',
   })
+
+  const { data: activeUser } = useQuery({
+    queryKey: ['active-user'],
+    queryFn: getActiveUser,
+  })
+
+  const saveNameMutation = useMutation({
+    mutationFn: (name: string) => renameUser(activeUser!.id, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['active-user'] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setStep('name-greeting')
+    },
+  })
+
+  const handleNameSubmit = () => {
+    const trimmed = userName.trim()
+    if (!trimmed || !activeUser) return
+    saveNameMutation.mutate(trimmed)
+  }
 
   const { data: providers = [], isLoading: providersLoading, isError: providersError, refetch: refetchProviders } = useQuery({
     queryKey: ['providers'],
@@ -524,21 +558,23 @@ export default function Onboarding() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const TOTAL_STEPS = 5
+  const TOTAL_STEPS = 6
 
   const stepIndex: Record<Step, number> = {
     welcome: 0,
     'how-it-works': 1,
-    'select-services': 2,
-    'setup-service': 3,
-    profile: 4,
-    summary: 5,
+    name: 2,
+    'name-greeting': 2,
+    'select-services': 3,
+    'setup-service': 4,
+    profile: 5,
+    summary: 6,
   }
 
   return (
     <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
       <div className="w-full max-w-xl">
-        {step !== 'welcome' && step !== 'summary' && (
+        {step !== 'welcome' && step !== 'name-greeting' && step !== 'summary' && (
           <ProgressDots
             current={stepIndex[step]}
             total={TOTAL_STEPS}
@@ -597,10 +633,59 @@ export default function Onboarding() {
               <button className="btn-secondary" onClick={() => setStep('welcome')}>
                 Back
               </button>
-              <button className="btn-primary flex-1" onClick={() => setStep('select-services')}>
+              <button className="btn-primary flex-1" onClick={() => setStep('name')}>
                 Sounds good →
               </button>
             </div>
+          </Card>
+        )}
+
+        {/* ── Name ─────────────────────────────────────────────────────── */}
+        {step === 'name' && (
+          <Card className="text-center">
+            <div className="text-4xl mb-5">👋</div>
+            <h2 className="text-xl font-semibold text-slate-800 mb-2">What should I call you?</h2>
+            <Prose>I'll use this as your local profile name.</Prose>
+            <input
+              type="text"
+              className="input mt-6 text-center text-base"
+              placeholder="Your name"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleNameSubmit() }}
+              autoFocus
+            />
+            <div className="flex gap-3 mt-6">
+              <button className="btn-secondary" onClick={() => setStep('how-it-works')}>
+                Back
+              </button>
+              <button
+                className="btn-primary flex-1"
+                disabled={!userName.trim() || saveNameMutation.isPending}
+                onClick={handleNameSubmit}
+              >
+                {saveNameMutation.isPending ? 'Saving…' : 'Continue →'}
+              </button>
+            </div>
+          </Card>
+        )}
+
+        {/* ── Name greeting ─────────────────────────────────────────────── */}
+        {step === 'name-greeting' && (
+          <Card className="text-center">
+            <div className="text-5xl mb-5">🌿</div>
+            <h2 className="text-2xl font-semibold text-slate-800 mb-3">
+              Nice to meet you, {userName.trim()}!
+            </h2>
+            <Prose>
+              Let's get your AI subscriptions set up. It only takes a couple of minutes.
+            </Prose>
+            <button
+              className="btn-primary mt-8 px-8 py-3 text-base"
+              onClick={() => setStep('select-services')}
+            >
+              Let's go →
+            </button>
           </Card>
         )}
 
@@ -671,7 +756,7 @@ export default function Onboarding() {
             </div>
 
             <div className="flex gap-3 mt-8">
-              <button className="btn-secondary" onClick={() => setStep('how-it-works')}>
+              <button className="btn-secondary" onClick={() => setStep('name-greeting')}>
                 Back
               </button>
               <button
