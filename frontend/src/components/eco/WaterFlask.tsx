@@ -25,6 +25,20 @@ const GRAD_MARKS: Array<{ liters: number; y: number }> = [
   { liters: 20, y: FILL_AREA.y + FILL_AREA.height * (1 - 20 / SCALE_MAX) },
 ]
 
+const SHOWER_LITERS = 50  // average 8-minute shower
+
+function showerPhrase(liters: number, period: 'month' | 'year'): string {
+  const count = liters / SHOWER_LITERS
+  if (count < 0.15) return '< 1 shower'
+  if (count < 0.75) {
+    const every = Math.round(1 / count)
+    const unit = period === 'year' ? 'yr' : 'mo'
+    return `≈ 1 shower every ${every} ${unit}`
+  }
+  if (count < 1.5) return '≈ 1 shower'
+  return `≈ ${Math.round(count)} showers`
+}
+
 export interface WaterFlaskProps {
   /** Estimated cooling water in liters (pre-scaled for the display period) */
   litersMonthly: number
@@ -118,9 +132,9 @@ export default function WaterFlask({
             ~{litersMonthly.toFixed(1)} L / {periodLabel}
           </div>
         )}
-        {isOverScale && (
-          <div className="text-xs text-slate-300 italic leading-none">beyond scale</div>
-        )}
+        <div className="text-xs text-slate-400 leading-none">
+          {showerPhrase(litersMonthly, period)}
+        </div>
       </div>
     </div>
   )
