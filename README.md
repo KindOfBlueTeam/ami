@@ -4,7 +4,19 @@
 
 Ami helps you see what you're spending on AI services, how much you actually use them, and their estimated environmental footprint. Everything is stored in a local SQLite file on your own machine. No accounts, no cloud, no data leaving your device.
 
+---
+
+## Screenshots
+
 <img width="1272" height="743" alt="Ami-Dashboard" src="https://github.com/user-attachments/assets/da6167c3-cc16-4e1c-a98d-8e9f329f6b1c" />
+
+<img width="856" height="515" alt="Ami-ServiceCard" src="https://github.com/user-attachments/assets/c8c9a427-de83-4bf3-871c-b7498aa85c6a" />
+
+<img width="895" height="453" alt="Ami-Recomendations 1" src="https://github.com/user-attachments/assets/fddabaaa-386e-4753-8aa1-0b96e301b389" />
+
+<img width="922" height="465" alt="Ami-Recomendations 2" src="https://github.com/user-attachments/assets/d119097e-b1ed-42a6-a27b-18ead588a873" />
+
+<img width="868" height="459" alt="Ami-Settings" src="https://github.com/user-attachments/assets/3b5a28e8-af0e-4404-893d-e4f37115dd95" />
 
 ---
 
@@ -21,14 +33,6 @@ That's it. Ami opens at **http://127.0.0.1:8000**.
 
 To stop Ami, press `Ctrl+C` in the terminal.
 
-## Screenshots
-<img width="856" height="515" alt="Ami-ServiceCard" src="https://github.com/user-attachments/assets/c8c9a427-de83-4bf3-871c-b7498aa85c6a" />
-
-<img width="895" height="453" alt="Ami-Recomendations 1" src="https://github.com/user-attachments/assets/fddabaaa-386e-4753-8aa1-0b96e301b389" />
-
-<img width="922" height="465" alt="Ami-Recomendations 2" src="https://github.com/user-attachments/assets/d119097e-b1ed-42a6-a27b-18ead588a873" />
-
-<img width="868" height="459" alt="Ami-Settings" src="https://github.com/user-attachments/assets/3b5a28e8-af0e-4404-893d-e4f37115dd95" />
 
 
 
