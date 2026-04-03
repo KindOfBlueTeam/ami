@@ -114,7 +114,7 @@ function ServiceSetup({
 
   const filteredPlans = plans.filter((p) => {
     if (p.is_free) return false
-    if (billingType === 'annual') return p.billing_interval === 'annual'
+    if (billingType === 'annual') return p.billing_interval === 'annual' || p.billing_interval === 'monthly' || !p.billing_interval
     return p.billing_interval === 'monthly' || !p.billing_interval
   })
 
@@ -259,7 +259,7 @@ function ServiceSetup({
               onClick={() => handlePlanSelect(null)}
               className={clsx(
                 'text-left p-3 rounded-lg border text-sm transition-colors',
-                draft.selectedPlan === null && draft.plan_id === null && draft.custom_plan_name !== undefined && billingType !== 'free'
+                draft.selectedPlan === null && draft.plan_id === null && draft.custom_plan_name !== undefined
                   ? 'border-sage-400 bg-sage-400/5'
                   : 'border-slate-200 hover:border-slate-300',
               )}
